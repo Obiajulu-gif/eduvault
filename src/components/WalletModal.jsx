@@ -3,12 +3,25 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function WalletModal({ isOpen, onClose }) {
 	const [step, setStep] = useState(1);
+	const router = useRouter();
 
 	const handleNext = () => setStep((prev) => prev + 1);
 	const handleBack = () => setStep((prev) => prev - 1);
+
+	// 🚀 Redirect to dashboard when profile setup is complete
+	const handleProfileSubmit = (e) => {
+		e.preventDefault();
+
+		// Optional: Simulate processing delay for smoother UX
+		setTimeout(() => {
+			onClose(); // close modal
+			router.push("/dashboard"); // navigate to dashboard
+		}, 1200);
+	};
 
 	const modalVariants = {
 		hidden: { opacity: 0, y: 50 },
@@ -39,11 +52,12 @@ export default function WalletModal({ isOpen, onClose }) {
 					✕
 				</button>
 
-				{/* Step 1: Connect Wallet */}
+				{/* Steps */}
 				<AnimatePresence mode="wait">
+					{/* Step 1: Get a Wallet */}
 					{step === 1 && (
 						<motion.div
-							key="step2"
+							key="step1"
 							variants={modalVariants}
 							initial="hidden"
 							animate="visible"
@@ -53,7 +67,7 @@ export default function WalletModal({ isOpen, onClose }) {
 								Get a Wallet
 							</h2>
 							<p className="text-sm text-gray-500 mb-8">
-								Start Exploring Web3 — your wallet is your gateway to the world
+								Start exploring Web3 — your wallet is your gateway to the world
 								of decentralized apps and crypto.
 							</p>
 
@@ -63,29 +77,20 @@ export default function WalletModal({ isOpen, onClose }) {
 									width={30}
 									height={30}
 									alt="MetaMask"
-									className="drop-shadow"
 								/>
 								<Image
 									src="/phantom.svg"
 									width={30}
 									height={30}
 									alt="Phantom"
-									className="drop-shadow"
 								/>
 								<Image
 									src="/coinbase.svg"
 									width={30}
 									height={30}
 									alt="Coinbase"
-									className="drop-shadow"
 								/>
-								<Image
-									src="/wallets.svg"
-									width={30}
-									height={30}
-									alt="Other"
-									className="drop-shadow"
-								/>
+								<Image src="/wallets.svg" width={30} height={30} alt="Other" />
 							</div>
 
 							<button
@@ -97,10 +102,10 @@ export default function WalletModal({ isOpen, onClose }) {
 						</motion.div>
 					)}
 
-					{/* Step 2: Get a Wallet */}
+					{/* Step 2: Connect Wallet */}
 					{step === 2 && (
 						<motion.div
-							key="step1"
+							key="step2"
 							variants={modalVariants}
 							initial="hidden"
 							animate="visible"
@@ -144,7 +149,7 @@ export default function WalletModal({ isOpen, onClose }) {
 							<div className="flex items-center gap-2 mt-5">
 								<input type="checkbox" className="w-4 h-4 rounded" />
 								<button
-									onClick={() => setStep(2)}
+									onClick={() => setStep(1)}
 									className="text-xs text-gray-500 hover:text-gray-700 underline"
 								>
 									I don’t have a wallet
@@ -170,7 +175,7 @@ export default function WalletModal({ isOpen, onClose }) {
 								student ID.
 							</p>
 
-							<form className="space-y-3">
+							<form className="space-y-3" onSubmit={handleProfileSubmit}>
 								{[
 									"Full Name",
 									"Email Address",
@@ -182,6 +187,7 @@ export default function WalletModal({ isOpen, onClose }) {
 										key={i}
 										type="text"
 										placeholder={field}
+										required
 										className="w-full border border-gray-200 rounded-lg py-2.5 px-3 text-sm focus:outline-none focus:border-blue-500"
 									/>
 								))}
