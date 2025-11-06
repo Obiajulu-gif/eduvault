@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { fullName, email, institution, country, bio } = body || {};
+    const { fullName, email, institution, country, bio, walletAddress } = body || {};
 
     if (!fullName || !email) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -15,10 +15,20 @@ export async function POST(request) {
     const db = await getDb();
     const users = db.collection("users");
 
-    // Check duplicate email
-    const existing = await users.findOne({ email });
+    const walletAddressLower = walletAddress ? walletAddress.toLowerCase() : null;
+
+    // Check duplicate by email or wallet address (if provided)
+    const duplicateQuery = walletAddress
+      ? { $or: [
+          { email },
+          { walletAddress },
+          { walletAddress: walletAddressLower },
+          { walletAddressLower }
+        ] }
+      : { email };
+    const existing = await users.findOne(duplicateQuery);
     if (existing) {
-      return NextResponse.json({ error: "Email already exists" }, { status: 409 });
+      return NextResponse.json({ error: "Profile already exists" }, { status: 409 });
     }
 
     const newUser = {
@@ -27,6 +37,8 @@ export async function POST(request) {
       institution: institution || null,
       country: country || null,
       bio: bio || null,
+      walletAddress: walletAddress || null,
+      walletAddressLower: walletAddressLower || null,
       createdAt: new Date().toISOString(),
     };
 
@@ -48,7 +60,12 @@ export async function POST(request) {
     let response = NextResponse.json({ success: true, user: newUser, emailSent });
     if (secret) {
       const token = jwt.sign(
-        { sub: newUser._id.toString(), email: newUser.email, name: newUser.fullName },
+        {
+          sub: newUser._id.toString(),
+          email: newUser.email,
+          name: newUser.fullName,
+          walletAddress: newUser.walletAddress,
+        },
         secret,
         { expiresIn: "7d" }
       );
@@ -66,6 +83,63 @@ export async function POST(request) {
     return response;
   } catch (error) {
     console.error("Profile creation error:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}
+
+// GET /api/profile?address=0x...
+// Returns { exists: boolean, user?: object }
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const address = searchParams.get("address");
+
+    if (!address) {
+      return NextResponse.json({ error: "Missing address" }, { status: 400 });
+    }
+
+    const db = await getDb();
+    const users = db.collection("users");
+    const addressLower = address.toLowerCase();
+    const user = await users.findOne({
+      $or: [
+        { walletAddress: address },
+        { walletAddressLower: addressLower },
+        { walletAddress: { $regex: `^${address}$`, $options: "i" } },
+      ],
+    });
+
+    // If a user exists, also issue an auth cookie so dashboard access works
+    const exists = !!user;
+    const response = NextResponse.json({ exists, user: user || null });
+    if (exists) {
+      const secret = process.env.JWT_SECRET;
+      if (secret) {
+        const token = jwt.sign(
+          {
+            sub: user._id.toString(),
+            email: user.email,
+            name: user.fullName,
+            walletAddress: user.walletAddress,
+          },
+          secret,
+          { expiresIn: "7d" }
+        );
+        response.cookies.set("auth_token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24 * 7,
+        });
+      } else {
+        console.warn("JWT_SECRET is not set; cannot create auth cookie on GET /api/profile.");
+      }
+    }
+
+    return response;
+  } catch (error) {
+    console.error("Profile lookup error:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
