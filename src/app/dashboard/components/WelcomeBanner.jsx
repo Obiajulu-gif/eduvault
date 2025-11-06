@@ -1,9 +1,10 @@
 "use client";
+import Image from "next/image";
 import { FaArrowRight } from "react-icons/fa";
 
 export default function WelcomeBanner() {
 	return (
-		<div className="bg-gradient-to-br from-yellow-100 to-orange-100 rounded-xl p-8 mb-8 flex justify-between items-center">
+		<div className="bg-gradient-to-br from-yellow-100 to-orange-100 rounded-xl p-8 flex justify-between items-center">
 			<div>
 				<h1 className="text-3xl font-bold mb-2">👋 Welcome back, Emmanuel!</h1>
 				<p className="text-gray-600 mb-4">Discover and sell your own NFTs.</p>
@@ -11,8 +12,14 @@ export default function WelcomeBanner() {
 					Discover Now <FaArrowRight />
 				</button>
 			</div>
-			<div className="w-32 h-32 rounded-full bg-yellow-400 flex items-center justify-center shadow-md">
-				<span className="text-5xl font-bold text-black">C</span>
+			<div className="w-40 h-40 rounded-full overflow-hidden flex items-center justify-center">
+				<Image
+					src="/images/celo.png"
+					alt="Celo Icon"
+					width={144}
+					height={144}
+					className="rounded-full object-cover"
+				/>
 			</div>
 		</div>
 	);
