@@ -95,10 +95,10 @@ export default function Hero() {
 						transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
 					>
 						<Image
-						src="/celo.png"
+						src="/images/celo.png"
 						alt="cele Icon"
-						width={54}
-						height={54}
+						width={80}
+						height={80}
 					/>
 					</motion.div>
 

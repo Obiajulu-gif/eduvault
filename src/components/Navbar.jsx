@@ -3,20 +3,27 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useState } from "react";
-import WalletModal from "@/components/WalletModal"; // 👈 make sure this path is correct
+import WalletModal from "@/components/WalletModal";
 
 export default function Navbar() {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 
 	return (
-		<header className="bg-[#fffaf6] flex justify-center py-6 px-4 md:px-0">
+		<header className="relative flex justify-center py-6 px-4 md:px-0 overflow-hidden bg-[#fffaf6]">
+			{/* 🔹 Background Grid Pattern */}
+			<div
+				className="absolute inset-0 bg-[linear-gradient(to_right,#f2ede8_1px,transparent_1px),linear-gradient(to_bottom,#f2ede8_1px,transparent_1px)] bg-[size:40px_40px] opacity-70 pointer-events-none"
+				aria-hidden="true"
+			></div>
+
+			{/* 🔹 Floating Navbar */}
 			<motion.nav
 				initial={{ y: -40, opacity: 0 }}
 				animate={{ y: 0, opacity: 1 }}
 				transition={{ duration: 0.6, ease: "easeOut" }}
-				className="flex items-center justify-between w-full md:w-[90%] lg:w-[85%] max-w-6xl 
-        bg-white border border-gray-200 rounded-full py-3 px-6 md:px-10 relative z-20"
+				className="relative flex items-center justify-between w-full md:w-[90%] lg:w-[85%] max-w-6xl 
+        bg-white/80 backdrop-blur-lg border border-gray-200 rounded-full py-3 px-6 md:px-10 shadow-sm z-10"
 			>
 				{/* Logo */}
 				<div className="text-lg font-bold tracking-tight text-gray-900">
@@ -51,14 +58,14 @@ export default function Navbar() {
 					</Link>
 				</div>
 
-			{/* Connect Wallet Button */}
-			<button
-				onClick={() => setIsModalOpen(true)}
-				className="hidden md:flex items-center gap-2 bg-white hover:bg-gray-100 text-black border border-gray-300 
+				{/* Connect Wallet Button */}
+				<button
+					onClick={() => setIsModalOpen(true)}
+					className="hidden md:flex items-center gap-2 bg-white hover:bg-gray-100 text-black border border-gray-300 
           text-sm font-semibold py-2 px-5 rounded-full transition-all duration-300"
-			>
-				Connect Wallet →
-			</button>
+				>
+					Connect Wallet →
+				</button>
 
 				{/* Mobile Menu Button */}
 				<button
