@@ -59,28 +59,28 @@ export default function WalletModal({ isOpen, onClose }) {
 
 							<div className="flex items-end justify-center gap-6 mb-8">
 								<Image
-									src="/metamask.svg"
+									src="/metamask.png"
 									width={30}
 									height={30}
 									alt="MetaMask"
 									className="drop-shadow"
 								/>
 								<Image
-									src="/phantom.svg"
+									src="/phantom.png"
 									width={30}
 									height={30}
 									alt="Phantom"
 									className="drop-shadow"
 								/>
 								<Image
-									src="/coinbase.svg"
+									src="/coinbase.png"
 									width={30}
 									height={30}
 									alt="Coinbase"
 									className="drop-shadow"
 								/>
 								<Image
-									src="/wallets.svg"
+									src="/wallets.png"
 									width={30}
 									height={30}
 									alt="Other"
@@ -115,10 +115,10 @@ export default function WalletModal({ isOpen, onClose }) {
 
 							<div className="space-y-3">
 								{[
-									{ name: "MetaMask", icon: "/metamask.svg" },
-									{ name: "Phantom", icon: "/phantom.svg" },
-									{ name: "Coinbase Wallet", icon: "/coinbase.svg" },
-									{ name: "Other Wallets", icon: "/wallets.svg" },
+									{ name: "MetaMask", icon: "/metamask.png" },
+									{ name: "Phantom", icon: "/phantom.png" },
+									{ name: "Coinbase Wallet", icon: "/coinbase.png" },
+									{ name: "Other Wallets", icon: "/wallets.png" },
 								].map((wallet, i) => (
 									<button
 										key={i}
@@ -129,12 +129,12 @@ export default function WalletModal({ isOpen, onClose }) {
 											<Image
 												src={wallet.icon}
 												alt={wallet.name}
-												width={24}
-												height={24}
+												width={128}
+												height={128}
 											/>
-											<span className="text-gray-800 text-sm font-medium">
+											{/* <span className="text-gray-800 text-sm font-medium">
 												{wallet.name}
-											</span>
+											</span> */}
 										</div>
 										<span className="text-gray-400 text-lg">→</span>
 									</button>

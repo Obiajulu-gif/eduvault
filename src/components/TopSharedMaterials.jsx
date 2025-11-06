@@ -92,7 +92,7 @@ export default function TopSharedMaterials() {
 						</div>
 						<div className="flex items-center gap-1">
 							<Image
-								src="/celo-icon.png"
+								src="/celo.png"
 								alt="CELO"
 								width={18}
 								height={18}
@@ -120,7 +120,7 @@ export default function TopSharedMaterials() {
 									</h3>
 									<div className="flex items-center gap-2 mt-1">
 										<Image
-											src="/celo-icon.png"
+											src="/celo.png"
 											alt="CELO"
 											width={14}
 											height={14}
