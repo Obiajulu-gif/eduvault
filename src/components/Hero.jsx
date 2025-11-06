@@ -15,6 +15,16 @@ export default function Hero() {
 		show: { transition: { staggerChildren: 0.2 } },
 	};
 
+	// Partner logos from /public
+	const partnerLogos = [
+		{ name: "Codecraftr", src: "/Codecraftr.png" },
+		{ name: "45 Degrees°", src: "/45deg.png" },
+		{ name: "Frequenti", src: "/Frequenti.png" },
+		{ name: "Convergence", src: "/Convergence.png" },
+		{ name: "Cooperative", src: "/Cooperative.png" },
+		{ name: "Kinstagt", src: "/Kinstagt.png" },
+	];
+
 	return (
 		<section className="relative flex flex-col items-center justify-center text-center py-20 md:py-28 px-6 md:px-0 overflow-hidden bg-[#fffaf6]">
 			{/* 🔳 Background Grid Pattern */}
@@ -36,7 +46,7 @@ export default function Hero() {
 				{/* Badge */}
 				<motion.div
 					variants={fadeUp}
-					className="flex items-center gap-2 bg-white border border-gray-200 px-3 py-1 rounded-full text-xs mb-4 shadow-sm"
+					className="flex items-center gap-2 bg-white border border-gray-200 px-3 py-1 rounded-full text-xs mb-4 shadow-sm text-black"
 				>
 					✨ Introducing <span className="font-semibold">EduVault</span>
 				</motion.div>
@@ -125,28 +135,27 @@ export default function Hero() {
 					Supported by Students. Powered by Blockchain.
 				</motion.p>
 
-				{/* Partner Logos */}
-				<motion.div
-					variants={fadeUp}
-					className="flex flex-wrap justify-center gap-6 mt-8"
-				>
-					{[
-						"Codecraftr",
-						"45 Degrees°",
-						"Frequenti",
-						"Convergence",
-						"Cooperative",
-						"Kinstagt",
-					].map((name, i) => (
-						<motion.div
-							key={i}
-							whileHover={{ scale: 1.05 }}
-							className="bg-white border border-gray-100 shadow-sm rounded-xl py-3 px-5 text-sm font-medium text-gray-700 transition-all"
-						>
-							{name}
-						</motion.div>
-					))}
-				</motion.div>
+			{/* Partner Logos */}
+			<motion.div
+				variants={fadeUp}
+				className="flex flex-wrap justify-center gap-6 mt-8"
+			>
+				{partnerLogos.map((logo, i) => (
+					<motion.div
+						key={i}
+						whileHover={{ scale: 1.05 }}
+						className="border border-gray-100  rounded-xl py-3 px-5 transition-all flex items-center justify-center"
+					>
+						<Image
+							src={logo.src}
+							alt={`${logo.name} logo`}
+							width={120}
+							height={32}
+							className="h-8 w-auto"
+						/>
+					</motion.div>
+				))}
+			</motion.div>
 			</motion.div>
 		</section>
 	);
