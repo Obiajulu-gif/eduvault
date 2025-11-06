@@ -37,7 +37,7 @@ export async function sendWelcomeEmail(to, name) {
 
   const subject = `Welcome to EduVault, ${name}!`;
 
-  const appUrl = process.env.APP_URL || "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const dashboardUrl = `${appUrl}/dashboard`;
 
   const text = `Hi ${name},\n\nWelcome to EduVault! Your student profile has been created.\n\nHead to your dashboard to start exploring, upload study materials, and share to earn.\n\nDashboard: ${dashboardUrl}\n\nCheers,\nEduVault Team`;
