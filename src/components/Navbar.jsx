@@ -51,14 +51,14 @@ export default function Navbar() {
 					</Link>
 				</div>
 
-				{/* Connect Wallet Button */}
-				<button
-					onClick={() => setIsModalOpen(true)}
-					className="hidden md:flex items-center gap-2 bg-gray-100 hover:bg-gray-200 
+			{/* Connect Wallet Button */}
+			<button
+				onClick={() => setIsModalOpen(true)}
+				className="hidden md:flex items-center gap-2 bg-white hover:bg-gray-100 text-black border border-gray-300 
           text-sm font-semibold py-2 px-5 rounded-full transition-all duration-300"
-				>
-					Connect Wallet →
-				</button>
+			>
+				Connect Wallet →
+			</button>
 
 				{/* Mobile Menu Button */}
 				<button

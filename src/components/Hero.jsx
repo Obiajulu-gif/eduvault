@@ -80,11 +80,16 @@ export default function Hero() {
 					className="relative mt-8 flex items-center justify-center"
 				>
 					<motion.div
-						className="absolute -left-16 top-10 w-16 h-16 rounded-full bg-yellow-400 shadow-lg flex items-center justify-center rotate-12"
+						className="absolute -left-16 top-10 w-16 h-16 rounded-full  flex items-center justify-center rotate-12"
 						animate={{ y: [0, -10, 0] }}
 						transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
 					>
-						<span className="text-black font-bold text-2xl">C</span>
+						<Image
+						src="/celo.png"
+						alt="cele Icon"
+						width={54}
+						height={54}
+					/>
 					</motion.div>
 
 					<motion.div
@@ -97,17 +102,22 @@ export default function Hero() {
 							alt="Student"
 							width={350}
 							height={400}
-							className="rounded-2xl shadow-lg relative z-10"
+							className="rounded-2xl  relative z-10"
 						/>
 					</motion.div>
 
-					<motion.div
-						className="absolute right-[-60px] bottom-0 bg-green-600 text-white rounded-full p-4 shadow-md"
-						animate={{ y: [0, 10, 0] }}
-						transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-					>
-						📚
-					</motion.div>
+				<motion.div
+					className="absolute right-[-150px] top-0 text-white rounded-full p-4"
+					animate={{ y: [0, 10, 0] }}
+					transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+				>
+					<Image
+						src="/message-icon.png"
+						alt="Message Icon"
+						width={54}
+						height={54}
+					/>
+				</motion.div>
 				</motion.div>
 
 				{/* Footer Text */}
