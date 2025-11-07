@@ -8,6 +8,17 @@ import { redirect } from "next/navigation";
 import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
+import { unstable_cache } from "next/cache";
+
+const getCachedUser = unstable_cache(
+    async (id) => {
+        const db = await getDb();
+        const users = db.collection("users");
+        return users.findOne({ _id: new ObjectId(id) });
+    },
+    ["user-by-id"],
+    { revalidate: 60 }
+);
 
 export default async function DashboardPage() {
     const cookieStore = await cookies();
@@ -27,9 +38,7 @@ export default async function DashboardPage() {
         redirect("/");
     }
 
-    const db = await getDb();
-    const users = db.collection("users");
-    const user = await users.findOne({ _id: new ObjectId(payload.sub) });
+    const user = await getCachedUser(payload.sub);
     if (!user) {
         redirect("/");
     }

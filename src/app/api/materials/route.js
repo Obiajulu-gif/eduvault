@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { getDb } from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 
 export const runtime = "nodejs";
 
@@ -40,8 +41,21 @@ export async function POST(request) {
     }
 
     const db = await getDb();
+
+    // Resolve uploader wallet address reliably
+    let userAddress = user.walletAddress || user.address || null;
+    if (!userAddress && user.sub) {
+      try {
+        const dbUser = await db.collection("users").findOne({ _id: new ObjectId(user.sub) });
+        userAddress = dbUser?.walletAddress || dbUser?.walletAddressLower || null;
+      } catch (e) {
+        // best-effort; keep null if lookup fails
+        console.warn("User lookup failed while creating material:", e?.message || e);
+      }
+    }
+
     const doc = {
-      userAddress: user.walletAddress || user.address || user.id,
+      userAddress,
       title,
       description: description || "",
       price: typeof price === "number" ? price : Number(price) || 0,

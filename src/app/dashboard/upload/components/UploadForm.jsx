@@ -181,7 +181,7 @@ export default function UploadForm() {
             type="number"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
-            placeholder="₦"
+            placeholder="celo"
             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500"
           />
         </div>

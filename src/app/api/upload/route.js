@@ -31,17 +31,29 @@ export async function POST(request) {
     }
 
     if (thumbFile) {
-      const thumbBlob = await put(thumbFile.name || "thumbnail", thumbFile, {
+      const safeThumbName = (thumbFile.name || "thumbnail")
+        .replace(/\s+/g, "-")
+        .replace(/[^a-zA-Z0-9.\-_]/g, "")
+        .toLowerCase();
+      const thumbBlob = await put(safeThumbName, thumbFile, {
         access: "public",
         token,
+        addRandomSuffix: true,
+        contentType: thumbFile.type || undefined,
       });
       results.thumbnail = thumbBlob;
     }
 
     if (docFile) {
-      const docBlob = await put(docFile.name || "document", docFile, {
+      const safeDocName = (docFile.name || "document")
+        .replace(/\s+/g, "-")
+        .replace(/[^a-zA-Z0-9.\-_]/g, "")
+        .toLowerCase();
+      const docBlob = await put(safeDocName, docFile, {
         access: "public",
         token,
+        addRandomSuffix: true,
+        contentType: docFile.type || undefined,
       });
       results.file = docBlob;
     }
