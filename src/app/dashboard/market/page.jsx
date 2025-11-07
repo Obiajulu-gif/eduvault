@@ -24,13 +24,14 @@ export default function MarketPage() {
 	const [materials, setMaterials] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [showPopup, setShowPopup] = useState(false);
+	const [error, setError] = useState(null);
 
 	const { writeContract, data: hash, isPending } = useWriteContract();
 	const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
 		hash,
 	});
 
-    const categories = ["All", "Social Sciences", "Engineering", "Pharmacy"];
+	const categories = ["All", "Social Sciences", "Engineering", "Pharmacy"];
 
 	// 1️⃣ Get total minted NFts (number of minted NFTs)
 	const { data: totalMinted } = useReadContract({
@@ -160,12 +161,12 @@ export default function MarketPage() {
 				</div>
 			</div>
 
-            {/* Error State */}
-            {error && (
-                <div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded">
-                    {error}
-                </div>
-            )}
+			{/* Error State */}
+			{error && (
+				<div className="mb-4 p-3 bg-red-50 text-red-700 border border-red-200 rounded">
+					{error}
+				</div>
+			)}
 
 			{/* Grid Section */}
 			<div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
