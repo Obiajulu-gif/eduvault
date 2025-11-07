@@ -72,4 +72,5 @@ The `EduVault` NFT smart contract is deployed on the **Celo Sepolia testnet** at
 
 **`0x3f48520ca0d8d51345b416b5a3e083dac8790f55`**
 
-You can view the contract on the [Celo Sepolia Block Explorer](https://sepolia-explorer.celo-testnet.org/address/0x3f48520ca0d8d51345b416b5a3e083dac8790f55).
+You can view the contract on the [Celo Sepolia Block Explorer](https://celo-sepolia.blockscout.com/address/0x3f48520ca0d8d51345b416b5a3e083dac8790f55).
+
