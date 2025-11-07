@@ -29,7 +29,7 @@ EduVault is an application that allows users to upload educational materials, mi
 
 1.  Clone the repository:
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/Obiajulu-gif/eduvault
     ```
 2.  Navigate to the project directory:
     ```bash
