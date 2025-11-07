@@ -1,6 +1,8 @@
 # EduVault - Decentralized Educational Materials Sharing Platform
 
 EduVault is an application that allows users to upload educational materials, mint them as NFTs on the Celo Sepolia testnet, and share them with others.
+### EduVault Homepage
+![Explorer Image](public/homepage.png)
 
 ## Features
 
@@ -8,6 +10,9 @@ EduVault is an application that allows users to upload educational materials, mi
 -   **NFT Minting:** Each uploaded document is minted as an NFT on the Celo Sepolia testnet, providing a verifiable record of ownership and authenticity.
 -   **Web3 Wallet Integration:** Users can connect their wallets using WalletConnect, MetaMask, or Coinbase Wallet to interact with the platform.
 -   **Browse and Discover:** Users can browse and discover educational materials uploaded by others.
+
+### EduVault Explorer
+![Explorer Image](public/explorer-image.png)
 
 ## Technologies Used
 
