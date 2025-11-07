@@ -71,13 +71,13 @@ export default function Hero() {
 				{/* CTA Buttons */}
 				<motion.div variants={fadeUp} className="flex gap-4 mb-12">
 					<Link
-						href="#"
+						href="/marketplace"
 						className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-full transition-all duration-300 shadow-md hover:shadow-lg"
 					>
 						Explore Documents
 					</Link>
 					<Link
-						href="#"
+						href="/dashboard"
 						className="border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-6 py-3 rounded-full transition-all duration-300"
 					>
 						Start Uploading →

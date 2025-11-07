@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "EduVault - Decentralized Educational Materials Sharing",
   description: "Share and monetize your educational materials on the blockchain with EduVault",
+  icons: {
+    icon: "/logo.png",              // general favicon
+    shortcut: "/logo.png",          // legacy shortcut icon
+    apple: "/logo.png"     // optional iOS icon (place in public/ if used)
+  },
 };
 
 export default function RootLayout({ children }) {
