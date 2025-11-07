@@ -2,11 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { FaHeart, FaCheckCircle } from "react-icons/fa";
 import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
+import BuyNowModal from "./modals/BuyNowModal";
 
 export default function MaterialDetailsPage() {
+	const [showBuyModal, setShowBuyModal] = useState(false);
+
 	const material = {
 		title: "ECO 201 – Principles of Microeconomics (Complete Lecture Notes)",
 		description:
@@ -106,7 +110,10 @@ export default function MaterialDetailsPage() {
 								<button className="px-6 py-2 border border-gray-300 text-gray-700 font-semibold rounded-md hover:bg-gray-100 transition">
 									Add to Cart
 								</button>
-								<button className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition">
+								<button
+									onClick={() => setShowBuyModal(true)}
+									className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition"
+								>
 									Buy Now!
 								</button>
 							</div>
@@ -219,6 +226,13 @@ export default function MaterialDetailsPage() {
 					</div>
 				</motion.div>
 			</section>
+
+			{/* 💳 Integrated Buy Now Modal */}
+			<BuyNowModal
+				isOpen={showBuyModal}
+				onClose={() => setShowBuyModal(false)}
+				price={material.price}
+			/>
 		</>
 	);
 }

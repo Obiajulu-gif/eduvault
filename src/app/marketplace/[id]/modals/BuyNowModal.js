@@ -1,0 +1,101 @@
+"use client";
+
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { FaTimes } from "react-icons/fa";
+import Image from "next/image";
+import ConnectWalletModal from "./ConnectWalletModal";
+
+export default function BuyNowModal({ isOpen, onClose, price }) {
+    const [showWallet, setShowWallet] = useState(false);
+    const [email, setEmail] = useState("");
+
+    const handlePay = () => {
+        setShowWallet(true);
+    };
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <>
+                    {/* Overlay */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 0.5 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black backdrop-blur-sm z-40"
+                        onClick={onClose}
+                    />
+
+                    {/* Modal Content */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: 50 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 50 }}
+                        className="fixed inset-0 flex items-center justify-center z-50"
+                    >
+                        <div className="bg-white rounded-2xl shadow-lg w-[90%] max-w-sm p-6 relative">
+                            {/* Close Button */}
+                            <button
+                                onClick={onClose}
+                                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                            >
+                                <FaTimes />
+                            </button>
+
+                            {/* Header */}
+                            <h2 className="text-lg font-bold text-gray-900 mb-1 text-center">
+                                Buy Now
+                            </h2>
+                            <p className="text-sm text-gray-500 mb-6 text-center">
+                                We’ll send the document to your email.
+                            </p>
+
+                            {/* Email Input */}
+                            <div className="mb-4">
+                                <label className="block text-xs font-semibold text-gray-600 mb-2">
+                                    EMAIL ADDRESS
+                                </label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="Enter your email"
+                                    className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                />
+                            </div>
+
+                            {/* Price Display */}
+                            <div className="flex justify-between items-center mb-5 text-sm">
+                                <span className="text-gray-600">You will pay</span>
+                                <div className="flex items-center gap-2 font-semibold text-gray-800">
+                                    <Image
+                                        src="/images/celo.png"
+                                        alt="Celo"
+                                        width={20}
+                                        height={20}
+                                    />
+                                    {price}
+                                </div>
+                            </div>
+
+                            {/* Pay Button */}
+                            <button
+                                onClick={handlePay}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-semibold text-sm transition-all"
+                            >
+                                Pay with Wallet
+                            </button>
+                        </div>
+                    </motion.div>
+
+                    {/* Show Wallet Modal */}
+                    <ConnectWalletModal
+                        isOpen={showWallet}
+                        onClose={() => setShowWallet(false)}
+                    />
+                </>
+            )}
+        </AnimatePresence>
+    );
+}
