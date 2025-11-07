@@ -58,9 +58,15 @@ export default function Footer() {
 				<div className="flex flex-col md:flex-row items-start md:items-center gap-4">
 					<div className="flex items-center gap-3 text-gray-400">
 						<span>Contact with us:</span>
-						<Link href="#" className="hover:text-white transition">
-							<FaXTwitter size={16} />
-						</Link>
+                        <a
+                            href="https://x.com/eduvault1"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:text-white transition"
+                            aria-label="EduVault on X"
+                        >
+                            <FaXTwitter size={16} />
+                        </a>
 						<Link href="#" className="hover:text-white transition">
 							<FaLinkedinIn size={16} />
 						</Link>
