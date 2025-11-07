@@ -56,12 +56,14 @@ export default function Navbar() {
 					>
 						Support
 					</Link>
-					<Link
-						href="#"
-						className="hover:text-gray-900 transition-all duration-200"
-					>
-						Docs
-					</Link>
+                    <a
+                        href="https://edu-vault.gitbook.io/edu-vault-docs/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-gray-900 transition-all duration-200"
+                    >
+                        Docs
+                    </a>
 				</div>
 
 				{/* Connect Wallet Button / Connected State */}
@@ -126,10 +128,16 @@ export default function Navbar() {
 				{/* Mobile Dropdown Menu */}
 				{menuOpen && (
 					<div className="absolute top-20 left-0 w-full bg-white border-t border-gray-200 shadow-sm flex flex-col items-center space-y-4 py-6 text-gray-700 md:hidden z-50">
-						<Link href="#">How It Works</Link>
-						<Link href="#">Marketplace</Link>
-						<Link href="#">Support</Link>
-						<Link href="#">Docs</Link>
+                        <Link href="#">How It Works</Link>
+                        <Link href="#">Marketplace</Link>
+                        <Link href="#">Support</Link>
+                        <a
+                            href="https://edu-vault.gitbook.io/edu-vault-docs/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Docs
+                        </a>
 						
 						{/* Mobile wallet button/state */}
 						{isConnected && address ? (

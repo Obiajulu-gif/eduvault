@@ -106,9 +106,12 @@ export default function TopSharedMaterials() {
 					variants={fadeUp}
 					className="relative h-[340px] rounded-2xl bg-gradient-to-br from-white to-gray-50 border border-gray-100 shadow-sm hover:shadow-lg overflow-hidden transition-all duration-300"
 				>
-					<div className="absolute inset-0 flex flex-col justify-center items-center text-gray-400 text-sm">
-						📄 Document Preview
-					</div>
+                    <Image
+                        src="/images/Generated Image November 07, 2025 - 7_02AM.png"
+                        alt="ECN 101 Preview"
+                        fill
+                        className="object-cover"
+                    />
 					<div className="absolute bottom-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-200 p-5 flex justify-between items-center">
 						<div>
 							<h3 className="text-sm font-semibold text-gray-800">

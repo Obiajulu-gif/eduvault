@@ -1,20 +1,29 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { FaHeart } from "react-icons/fa";
 import { FiFilter } from "react-icons/fi";
 
 export default function DiscoverMaterials() {
 	const [loading, setLoading] = useState(true);
 
-	const materials = Array(9).fill({
-		title: "CHM 112 – Lab Report Template (UNN)",
-		author: "Chijioke M.",
-		likes: "21.5K",
-		bid: "0.25 CELO",
-		time: "01:09:40",
-	});
+    const imageOptions = [
+        "/images/Generated Image November 07, 2025 - 6_44AM.png",
+        "/images/Generated Image November 07, 2025 - 6_53AM.png",
+    ];
+
+    const materials = useMemo(() =>
+        Array.from({ length: 9 }).map(() => ({
+            title: "CHM 112 – Lab Report Template (UNN)",
+            author: "Chijioke M.",
+            likes: "21.5K",
+            bid: "0.25 CELO",
+            time: "01:09:40",
+            image: imageOptions[Math.floor(Math.random() * imageOptions.length)],
+        })),
+        []
+    );
 
 	const categories = ["All", "Social Sciences", "Engineering", "Pharmacy"];
 	const [activeCategory, setActiveCategory] = useState("All");
@@ -107,10 +116,14 @@ export default function DiscoverMaterials() {
 								variants={fadeUp}
 								className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all duration-300"
 							>
-								{/* Thumbnail */}
-								<div className="bg-gray-100 rounded-xl h-48 mb-4 flex items-center justify-center text-gray-400 text-sm">
-									📘 Material Preview
-								</div>
+                                {/* Thumbnail */}
+                                <div className="bg-gray-100 rounded-xl h-48 mb-4 overflow-hidden">
+                                    <img
+                                        src={item.image}
+                                        alt={item.title}
+                                        className="h-full w-full object-cover"
+                                    />
+                                </div>
 
 								{/* CTA Button */}
 								<button className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-2 px-5 rounded-full mb-4 transition-all">
