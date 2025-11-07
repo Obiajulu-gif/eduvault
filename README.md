@@ -11,9 +11,6 @@ EduVault is an application that allows users to upload educational materials, mi
 -   **Web3 Wallet Integration:** Users can connect their wallets using WalletConnect, MetaMask, or Coinbase Wallet to interact with the platform.
 -   **Browse and Discover:** Users can browse and discover educational materials uploaded by others.
 
-### EduVault Explorer
-![Explorer Image](public/explorer-image.png)
-
 ## Technologies Used
 
 -   **Frontend:** Next.js, React, Tailwind CSS
@@ -73,9 +70,11 @@ PINATA_JWT=""
 
 ## Smart Contract
 
-The `EduVault` NFT smart contract is deployed on the **Celo Sepolia testnet** at the following address:
+The `EduVault` NFT smart contract is deployed and verified on the **Celo Sepolia testnet** at the following address:
 
 **`0x3f48520ca0d8d51345b416b5a3e083dac8790f55`**
 
 You can view the contract on the [Celo Sepolia Block Explorer](https://celo-sepolia.blockscout.com/address/0x3f48520ca0d8d51345b416b5a3e083dac8790f55).
 
+### Block Explorer
+![Explorer Image](public/explorer-image.png)
