@@ -147,16 +147,6 @@ export const POST = withAuthorization(
 export const GET = withAuthorization(async (request) => {
   const { userId } = request; // userId is now available from withAuthorization
   try {
-    const { db } = await connectToDatabase();
-    const authResult = await validateAuth(request);
-    if (!authResult.valid) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
-    const { address } = authResult;
     const db = await getDb();
 
     const verification = await db.collection("student_verifications").findOne(

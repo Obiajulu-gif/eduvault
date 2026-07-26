@@ -42,12 +42,23 @@ vi.mock('@/lib/mongodb', () => ({
     getDb: vi.fn(() => mockDb),
 }));
 
+process.env.JWT_SECRET = "test-jwt-secret-for-integration-tests-at-least-32-chars";
+
 vi.mock('@/lib/api/auth', () => ({
     getUserFromCookie: vi.fn(async (request) => {
-        const walletAddress = request?.headers?.get('x-user-wallet');
+        const walletAddress = request?.headers?.get?.('x-user-wallet');
         if (!walletAddress) return null;
         return {
             sub: 'test_user_1',
+            walletAddress,
+            address: walletAddress,
+        };
+    }),
+    getFullUserFromCookie: vi.fn(async (request) => {
+        const walletAddress = request?.headers?.get?.('x-user-wallet');
+        if (!walletAddress) return null;
+        return {
+            _id: 'test_user_1',
             walletAddress,
             address: walletAddress,
         };

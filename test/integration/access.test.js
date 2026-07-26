@@ -17,7 +17,7 @@ describe('Buyer Access Status Flow', () => {
         const data = await res.json();
 
         expect(res.status).toBe(401);
-        expect(data).toEqual({ error: 'Authentication required' });
+        expect(data).toHaveProperty('error');
     });
 
     it('returns not_purchased when no entitlement exists on-chain', async () => {

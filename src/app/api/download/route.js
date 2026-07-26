@@ -67,7 +67,6 @@ export const GET = withApiHardening(
       403
     );
   }
-  }
 
   // ── 3. Fetch material record to get the IPFS CID ──────────────────────────
 
@@ -168,9 +167,10 @@ export const GET = withApiHardening(
         'X-Manifest-Verified': manifestDigestVerified ? 'true' : 'false',
       },
     }
-    },
-    {
-      route: 'download',
-      rateLimit: { limit: 100, windowMs: 60_000 }, // 100 downloads/min per IP
-    }
   );
+  },
+  {
+    route: 'download',
+    rateLimit: { limit: 100, windowMs: 60_000 }, // 100 downloads/min per IP
+  }
+);
