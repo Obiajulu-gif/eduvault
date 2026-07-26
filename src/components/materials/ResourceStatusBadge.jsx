@@ -7,11 +7,13 @@
  *   Verified    — creator-verified content (material.verified === true)
  *   Top Rated   — averageScore >= 4.5
  *   Popular     — likes >= 1000
- *   Draft       — visibility is "private"
+ *   Draft       — lifecycle status is "draft" (or visibility is "private" for legacy docs)
  *   Unlisted    — visibility is "unlisted"
- *   Published   — visibility is "public"
+ *   Published   — lifecycle status is "published" (or visibility is "public" for legacy docs)
+ *   Closed      — lifecycle status is "closed"
+ *   Canceled    — lifecycle status is "canceled"
  *
- * See docs/resource-status-badges.md for full reference.
+ * See docs/resource-status-badges.md and docs/material-lifecycle.md for full reference.
  */
 
 const BADGE_STYLES = {
@@ -23,6 +25,8 @@ const BADGE_STYLES = {
   Draft: "bg-gray-100 text-gray-600 border border-gray-200",
   Unlisted: "bg-orange-50 text-orange-700 border border-orange-200",
   Published: "bg-green-50 text-green-700 border border-green-200",
+  Closed: "bg-slate-100 text-slate-600 border border-slate-300",
+  Canceled: "bg-red-50 text-red-700 border border-red-200",
 };
 
 const BADGE_TOOLTIPS = {
@@ -34,6 +38,8 @@ const BADGE_TOOLTIPS = {
   Draft: "Private draft — not publicly listed",
   Unlisted: "Accessible by link only",
   Published: "Publicly listed in the marketplace",
+  Closed: "No longer accepting new purchases",
+  Canceled: "Withdrawn before publication",
 };
 
 export function deriveBadges(material) {
@@ -64,12 +70,23 @@ export function deriveBadges(material) {
     badges.push("Popular");
   }
 
-  if (visibility === "private") {
+  if (material.status === "closed") {
+    badges.push("Closed");
+  } else if (material.status === "canceled") {
+    badges.push("Canceled");
+  } else if (material.status === "published") {
+    badges.push("Published");
+  } else if (material.status === "draft") {
     badges.push("Draft");
-  } else if (visibility === "unlisted") {
-    badges.push("Unlisted");
+  } else if (visibility === "private") {
+    // Legacy materials without an explicit lifecycle status yet.
+    badges.push("Draft");
   } else if (visibility === "public") {
     badges.push("Published");
+  }
+
+  if (visibility === "unlisted" && material.status !== "closed" && material.status !== "canceled") {
+    badges.push("Unlisted");
   }
 
   return badges;

@@ -2,10 +2,73 @@
 
 import { useState } from "react";
 import { useWallet } from "@/hooks/useWallet";
-import { useUserMaterials, useUpdateMaterial } from "@/hooks/api/useMaterials";
-import { FaEdit, FaSave, FaTimes, FaSpinner, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+import {
+  useUserMaterials,
+  useUpdateMaterial,
+  usePublishMaterial,
+  useCloseMaterial,
+  useCancelMaterial,
+} from "@/hooks/api/useMaterials";
+import { FaEdit, FaSave, FaTimes, FaSpinner, FaCheckCircle, FaExclamationTriangle, FaUpload, FaLock, FaBan } from "react-icons/fa";
 import ResourceStatusBadge from "@/components/materials/ResourceStatusBadge";
 import { EDITABLE_MATERIAL_FIELDS, IMMUTABLE_MATERIAL_FIELDS } from "@/lib/backend/schemaContracts";
+import { MATERIAL_STATUS, getAllowedNextStatuses } from "@/lib/materials/materialLifecycleConstants";
+
+const LIFECYCLE_ACTIONS = {
+  [MATERIAL_STATUS.PUBLISHED]: { label: "Publish", icon: FaUpload, style: "bg-green-600 hover:bg-green-700" },
+  [MATERIAL_STATUS.CLOSED]: { label: "Close", icon: FaLock, style: "bg-slate-600 hover:bg-slate-700" },
+  [MATERIAL_STATUS.CANCELED]: { label: "Cancel", icon: FaBan, style: "bg-red-600 hover:bg-red-700" },
+};
+
+function MaterialLifecycleActions({ material }) {
+  const [error, setError] = useState(null);
+  const publishMutation = usePublishMaterial();
+  const closeMutation = useCloseMaterial();
+  const cancelMutation = useCancelMaterial();
+
+  const mutationByStatus = {
+    [MATERIAL_STATUS.PUBLISHED]: publishMutation,
+    [MATERIAL_STATUS.CLOSED]: closeMutation,
+    [MATERIAL_STATUS.CANCELED]: cancelMutation,
+  };
+
+  const nextStatuses = getAllowedNextStatuses(material.status);
+  if (nextStatuses.length === 0) return null;
+
+  const handleAction = async (toStatus) => {
+    setError(null);
+    try {
+      await mutationByStatus[toStatus].mutateAsync({ id: material._id });
+    } catch (err) {
+      setError(err.message || "Action failed. Please try again.");
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <div className="flex gap-2">
+        {nextStatuses.map((toStatus) => {
+          const action = LIFECYCLE_ACTIONS[toStatus];
+          if (!action) return null;
+          const Icon = action.icon;
+          const isPending = mutationByStatus[toStatus].isPending;
+          return (
+            <button
+              key={toStatus}
+              onClick={() => handleAction(toStatus)}
+              disabled={isPending}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-60 ${action.style}`}
+            >
+              {isPending ? <FaSpinner className="animate-spin" size={12} /> : <Icon size={12} />}
+              {action.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function EditModal({ material, isOpen, onClose }) {
   const updateMutation = useUpdateMaterial();
@@ -285,6 +348,8 @@ export default function MyMaterialsPage() {
                       Updated: {new Date(material.updatedAt).toLocaleDateString()}
                     </p>
                   )}
+
+                  <MaterialLifecycleActions material={material} />
 
                   <button
                     onClick={() => setEditMaterial(material)}

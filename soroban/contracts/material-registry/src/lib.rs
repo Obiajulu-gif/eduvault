@@ -590,11 +590,7 @@ impl MaterialRegistry {
             .set(&version_key, &version_record);
 
         let count_key = DataKey::MaterialVersionCount(material_id.clone());
-        let current_count: u32 = env
-            .storage()
-            .persistent()
-            .get(&count_key)
-            .unwrap_or(0);
+        let current_count: u32 = env.storage().persistent().get(&count_key).unwrap_or(0);
         env.storage()
             .persistent()
             .set(&count_key, &(current_count.max(version)));
@@ -668,16 +664,9 @@ impl MaterialRegistry {
     }
 
     /// Get the latest published version number for a material.
-    pub fn get_latest_version(
-        env: Env,
-        material_id: BytesN<32>,
-    ) -> Result<u32, RegistryError> {
+    pub fn get_latest_version(env: Env, material_id: BytesN<32>) -> Result<u32, RegistryError> {
         let count_key = DataKey::MaterialVersionCount(material_id);
-        let count: u32 = env
-            .storage()
-            .persistent()
-            .get(&count_key)
-            .unwrap_or(0);
+        let count: u32 = env.storage().persistent().get(&count_key).unwrap_or(0);
         if count == 0 {
             return Err(RegistryError::VersionNotFound);
         }

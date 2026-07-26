@@ -101,8 +101,20 @@ export function resetMetrics() {
 /** Prometheus text exposition format for the /api/metrics endpoint. */
 export function toPrometheusFormat() {
   const lines = [];
+  for (const [name, series] of counters.entries()) {
+    lines.push(`# TYPE ${name} counter`);
+    for (const [key, value] of series.entries()) {
+      lines.push(key ? `${name}{${key}} ${value}` : `${name} ${value}`);
+    }
+  }
   for (const [name, series] of gauges.entries()) {
     lines.push(`# TYPE ${name} gauge`);
+    for (const [key, value] of series.entries()) {
+      lines.push(key ? `${name}{${key}} ${value}` : `${name} ${value}`);
+    }
+  }
+  for (const [name, series] of counters.entries()) {
+    lines.push(`# TYPE ${name} counter`);
     for (const [key, value] of series.entries()) {
       lines.push(key ? `${name}{${key}} ${value}` : `${name} ${value}`);
     }

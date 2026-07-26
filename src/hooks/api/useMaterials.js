@@ -79,6 +79,35 @@ export function useUpdateMaterial() {
   });
 }
 
+function useMaterialLifecycleMutation(mutationFn) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.materials.all });
+      queryClient.invalidateQueries({ queryKey: ['materials', 'marketplace'] });
+    },
+  });
+}
+
+export function usePublishMaterial() {
+  return useMaterialLifecycleMutation(({ id, contractId }) =>
+    materialService.publishMaterial(id, { contractId })
+  );
+}
+
+export function useCloseMaterial() {
+  return useMaterialLifecycleMutation(({ id, reason }) =>
+    materialService.closeMaterial(id, { reason })
+  );
+}
+
+export function useCancelMaterial() {
+  return useMaterialLifecycleMutation(({ id, reason }) =>
+    materialService.cancelMaterial(id, { reason })
+  );
+}
+
 export function useSubmitMaterialFeedback(id) {
   const queryClient = useQueryClient();
 

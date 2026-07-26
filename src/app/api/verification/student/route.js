@@ -1,24 +1,17 @@
 import { NextResponse } from "next/server";
 import connectToDatabase from "@/lib/mongodb";
+import { withAuthorization } from "@/lib/auth/authorize";
+import { getDb } from "@/lib/mongodb";
 import { validateAuth } from "@/lib/auth/session";
 
 /**
  * POST /api/verification/student
  * Submit student verification application with documents
  */
-export async function POST(request) {
-  try {
-    // Authenticate user
-    const authResult = await validateAuth(request);
-    if (!authResult.valid) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
-    const { address } = authResult;
-    const formData = await request.formData();
+export const POST = withAuthorization(
+  async (request) => {
+    const { userId } = request; // userId is now available from withAuthorization
+    const formData = request.parsedFormData; // Use parsedFormData from checkOwnership
 
     // Extract form fields
     const walletAddress = formData.get("walletAddress");
@@ -44,14 +37,6 @@ export async function POST(request) {
       );
     }
 
-    // Verify wallet address matches authenticated user
-    if (walletAddress.toLowerCase() !== address.toLowerCase()) {
-      return NextResponse.json(
-        { error: "Wallet address mismatch" },
-        { status: 403 },
-      );
-    }
-
     // Validate file size (5MB max)
     if (document.size > 5 * 1024 * 1024) {
       return NextResponse.json(
@@ -74,13 +59,13 @@ export async function POST(request) {
       );
     }
 
-    const { db } = await connectToDatabase();
+    const db = await getDb();
 
     // Check for existing pending or approved verification
     const existingVerification = await db
       .collection("student_verifications")
       .findOne({
-        walletAddress: address.toLowerCase(),
+        walletAddress: userId.toLowerCase(), // Use userId from auth
         status: { $in: ["pending", "approved"] },
       });
 
@@ -101,7 +86,7 @@ export async function POST(request) {
 
     // Create verification record
     const verification = {
-      walletAddress: address.toLowerCase(),
+      walletAddress: userId.toLowerCase(), // Use userId from auth
       fullName,
       email: email.toLowerCase(),
       institution,
@@ -129,7 +114,7 @@ export async function POST(request) {
     await db.collection("admin_moderation_queue").insertOne({
       type: "student_verification",
       verificationId: result.insertedId,
-      walletAddress: address.toLowerCase(),
+      walletAddress: userId.toLowerCase(), // Use userId from auth
       submittedAt: new Date(),
       status: "pending",
       priority: "normal",
@@ -144,34 +129,28 @@ export async function POST(request) {
       },
       { status: 201 },
     );
-  } catch (error) {
-    console.error("Error submitting student verification:", error);
-    return NextResponse.json(
-      { error: "Failed to submit verification", details: error.message },
-      { status: 500 },
-    );
-  }
-}
+  },
+  {
+    checkOwnership: async (userId, fullUser, request) => {
+      const formData = await request.formData();
+      request.parsedFormData = formData; // Store for the handler
+      const walletAddress = formData.get("walletAddress");
+      return walletAddress.toLowerCase() === userId.toLowerCase();
+    },
+  },
+);
 
 /**
  * GET /api/verification/student
  * Check student verification status for authenticated user
  */
-export async function GET(request) {
+export const GET = withAuthorization(async (request) => {
+  const { userId } = request; // userId is now available from withAuthorization
   try {
-    const authResult = await validateAuth(request);
-    if (!authResult.valid) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
-    const { address } = authResult;
-    const { db } = await connectToDatabase();
+    const db = await getDb();
 
     const verification = await db.collection("student_verifications").findOne(
-      { walletAddress: address.toLowerCase() },
+      { walletAddress: userId.toLowerCase() }, // Use userId from auth
       {
         projection: {
           "document.data": 0, // Exclude binary document data
@@ -204,4 +183,4 @@ export async function GET(request) {
       { status: 500 },
     );
   }
-}
+});

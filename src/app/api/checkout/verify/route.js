@@ -1,9 +1,10 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getUserFromCookie } from '@/lib/api/auth';
 import { verifyWalletAddressMatch } from '@/lib/stellar/checkoutService';
 import logger from '@/lib/logger';
+import { withAuthorization } from "@/lib/auth/authorize";
+import { errorResponse } from "@/lib/api/errorResponse";
 
 /**
  * POST /api/checkout/verify
@@ -17,61 +18,47 @@ import logger from '@/lib/logger';
  *
  * Session state persists per-user in the JWT; repeated mismatches clear the session.
  */
-export async function POST(req) {
-  try {
-    const user = await getUserFromCookie(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export const POST = withAuthorization(
+  async (authorizedRequest) => {
+    const { userId, fullUser } = authorizedRequest;
+    try {
+      const body = await authorizedRequest.json().catch(() => ({}));
+      const { payloadAddress } = body;
 
-    const body = await req.json().catch(() => ({}));
-    const { payloadAddress } = body;
-
-    if (!payloadAddress || typeof payloadAddress !== 'string') {
-      return NextResponse.json({ error: 'Missing payloadAddress in request body' }, { status: 400 });
-    }
-
-    const sessionAddress = user.walletAddress || user.address || user.publicKey || '';
-
-    if (!sessionAddress) {
-      logger.warn({ userId: user.id }, 'Checkout verify: session has no wallet address');
-      return NextResponse.json({ error: 'Session wallet address not found' }, { status: 400 });
-    }
-
-    // Mutable session state (warnings counter) stored on the user object.
-    // In production this would be persisted via Redis / signed cookie update.
-    const sessionState = user.sessionState ?? {};
-    const result = verifyWalletAddressMatch({ sessionAddress, payloadAddress, sessionState });
-
-    if (!result.valid) {
-      logger.warn(
-        { sessionAddress, payloadAddress, warnings: result.warnings, clearSession: result.clearSession },
-        'Checkout verify: wallet address mismatch blocked submission'
-      );
-
-      if (result.clearSession) {
-        return NextResponse.json(
-          {
-            error: 'Wallet address mismatch — session cleared due to repeated violations',
-            clearSession: true,
-          },
-          { status: 403 }
-        );
+      if (!payloadAddress || typeof payloadAddress !== 'string') {
+        return errorResponse('Missing payloadAddress in request body', 400);
       }
 
-      return NextResponse.json(
-        {
-          error: 'Wallet address in signed payload does not match session wallet',
-          reason: result.reason,
-          warnings: result.warnings,
-        },
-        { status: 403 }
-      );
-    }
+      const sessionAddress = fullUser.walletAddress || fullUser.address || fullUser.publicKey || '';
 
-    return NextResponse.json({ valid: true, address: sessionAddress }, { status: 200 });
-  } catch (err) {
-    logger.error({ err: err.message }, 'POST /api/checkout/verify error');
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
-  }
-}
+      if (!sessionAddress) {
+        logger.warn({ userId }, 'Checkout verify: session has no wallet address');
+        return errorResponse('Session wallet address not found', 400);
+      }
+
+      // Mutable session state (warnings counter) stored on the user object.
+      // In production this would be persisted via Redis / signed cookie update.
+      const sessionState = fullUser.sessionState ?? {};
+      const result = verifyWalletAddressMatch({ sessionAddress, payloadAddress, sessionState });
+
+      if (!result.valid) {
+        logger.warn(
+          { sessionAddress, payloadAddress, warnings: result.warnings, clearSession: result.clearSession },
+          'Checkout verify: wallet address mismatch blocked submission'
+        );
+
+        if (result.clearSession) {
+          return errorResponse('Wallet address mismatch — session cleared due to repeated violations', 403);
+        }
+
+        return errorResponse('Wallet address in signed payload does not match session wallet', 403);
+      }
+
+      return NextResponse.json({ valid: true, address: sessionAddress }, { status: 200 });
+    } catch (err) {
+      logger.error({ err: err.message }, 'POST /api/checkout/verify error');
+      return errorResponse('Server error', 500);
+    }
+  },
+  { checkOwnership: async () => true } // Any authenticated user can verify their own wallet address
+);

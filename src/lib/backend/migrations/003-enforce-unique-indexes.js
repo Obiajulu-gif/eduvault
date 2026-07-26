@@ -61,7 +61,7 @@ async function dropUniqueIndexes(
   }
 }
 
-export default {
+const migration = {
   version: 3,
   name: "enforce-unique-indexes",
   description:
@@ -97,3 +97,5 @@ export default {
     logger.info?.("[migration:003] Unique index rollback completed");
   },
 };
+
+export default migration;

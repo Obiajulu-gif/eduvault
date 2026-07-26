@@ -5,6 +5,7 @@ import { auditLog } from '@/lib/api/audit'
 import { withApiHardening } from '@/lib/api/hardening'
 import {
   normalizeStringList,
+  normalizeImageField,
   sanitizeObject,
   validateUploadPayload,
   validateUploadFileMetadata,
@@ -156,8 +157,8 @@ export async function POST(request) {
 
         const metadataJSON = {
           ...sanitizedScalarFields,
-          coverImageUrl: results.imgUrl || sanitizedScalarFields.coverImageUrl || null,
-          thumbnailUrl: results.imgUrl || sanitizedScalarFields.thumbnailUrl || null,
+          coverImageUrl: results.imgUrl || normalizeImageField(sanitizedScalarFields.coverImageUrl, 'coverImageUrl'),
+          thumbnailUrl: results.imgUrl || normalizeImageField(sanitizedScalarFields.thumbnailUrl, 'thumbnailUrl'),
           learningOutcomes: normalizeStringList(previewInputs.learningOutcomes, { maxItems: 8, maxLength: 180 }),
           tableOfContents: normalizeStringList(previewInputs.tableOfContents, { maxItems: 16, maxLength: 180 }),
           sampleNotes: normalizeStringList(previewInputs.sampleNotes, { maxItems: 6, maxLength: 280 }),

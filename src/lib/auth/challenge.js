@@ -1,5 +1,5 @@
-import { getDb } from '@/lib/mongodb';
-import { NETWORK_PASSPHRASE } from '@/lib/config/chain';
+import { getDb } from '../mongodb.js';
+import { NETWORK_PASSPHRASE } from '../config/chain.js';
 import { TransactionBuilder, Keypair, StrKey } from '@stellar/stellar-sdk';
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;

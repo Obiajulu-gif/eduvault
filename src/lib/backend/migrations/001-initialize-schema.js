@@ -50,7 +50,7 @@ async function createIndexes(db, collectionName, indexDefinitions) {
   await db.collection(collectionName).createIndexes(models);
 }
 
-export default {
+const migration = {
   version: 1,
   name: "initialize-documented-schema",
   description:
@@ -121,3 +121,5 @@ export default {
     }
   },
 };
+
+export default migration;

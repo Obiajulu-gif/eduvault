@@ -1,0 +1,62 @@
+name: Preview Smoke Tests
+
+# Black-box smoke checks against a deployed preview. Two ways in:
+#
+#   1. deployment_status — fires when a preview provider (e.g. Vercel) reports
+#      a successful deployment, carrying the preview URL. This is the normal
+#      path and needs no secrets of its own.
+#   2. workflow_dispatch — run manually against any URL, e.g. a local tunnel.
+#
+# The job never checks out untrusted code with elevated scope and never needs
+# repository secrets: it only makes outbound HTTP requests to the preview URL,
+# so it is safe for fork pull requests by construction.
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Preview base URL to smoke test"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-smoke-${{ github.ref }}-${{ github.event.deployment_status.target_url || github.event.inputs.base_url }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Smoke test preview deployment
+    runs-on: ubuntu-latest
+    # Only run for a successful deployment (or a manual dispatch). Pending and
+    # failed deployment_status events are ignored.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.deployment_status.state == 'success'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # No dependency install: the smoke script is dependency-free and uses
+      # only built-in fetch, so there is nothing to build and no lockfile to
+      # restore before it can run.
+      - name: Resolve preview URL
+        id: url
+        run: |
+          URL="${{ github.event.inputs.base_url || github.event.deployment_status.target_url }}"
+          if [ -z "$URL" ]; then
+            echo "No preview URL available on this event; nothing to smoke test."
+            exit 1
+          fi
+          echo "base_url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Run smoke tests
+        env:
+          SMOKE_BASE_URL: ${{ steps.url.outputs.base_url }}
+        run: node scripts/smoke-preview.mjs

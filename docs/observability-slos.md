@@ -1,7 +1,7 @@
 # Observability: SLIs, SLOs, Alerts & Runbooks
 
-Companion doc to issue #20. Defines what we measure, the targets we hold
-ourselves to, and what to do when an alert fires.
+Companion doc to issues #20 and #63. Defines what we measure, the targets we
+hold ourselves to, and what to do when an alert fires.
 
 ## Correlation model
 
@@ -75,6 +75,8 @@ beyond the cap are dropped rather than growing memory unbounded.
 | `indexer_events_applied_total` / `indexer_events_skipped_total` | counter | source | Indexer throughput |
 | `indexer_ledger_lag` | gauge | source | How far the indexer is behind |
 | `indexer_dead_letter_count` | gauge | source | Unresolved failed events |
+| `stellar_sync_batches_total` | counter | source, outcome | Stellar sync batch outcomes |
+| `stellar_sync_events_total` | counter | source, outcome | Stellar event apply outcomes |
 | `dependency_up` | gauge | dependency | 1/0 per dependency from `/api/ready` |
 
 ## Alerts & runbooks
@@ -131,6 +133,20 @@ purchase success rate (last 1h/24h), purchase latency p50/p95/p99,
 indexer ledger lag over time, dead-letter backlog over time, HTTP error
 rate by route.
 
+## Audit events
+
+Issue #63 adds an allow-listed audit stream for API and operational actions.
+Each JSON event has a timestamp and, when it runs in a request or worker, the
+`correlationId` and `traceId`. Audit records intentionally contain only
+operation metadata: no request body, file bytes, secrets, or credentials.
+
+- Uploads record success, validation/storage failures, queued fallbacks, and
+  quarantine decisions. Resumable uploads also record session creation,
+  reads, part/complete/cancel updates, and conflicts.
+- Stellar sync records batch completion, fetch failures, and each event that
+  enters the dead-letter path. Search by `eventId` or `correlationId` to
+  connect an operational record to its trace.
+
 ## Health vs readiness
 
 - `GET /api/health` — liveness only. No dependency checks. "Is the process
@@ -142,11 +158,14 @@ rate by route.
 
 ## Known limitations / honest follow-ups
 
-- `indexer_ledger_lag` currently measures ledgers advanced per batch, not
-  true distance from the live chain tip — computing true lag needs an
-  additional RPC call to fetch the current tip ledger per batch, which we
-  deferred to avoid extra RPC load on every indexer cycle. Worth revisiting
-  if lag alerts prove too noisy/quiet in practice.
+- `indexer_ledger_lag` measures true distance from the live chain tip. No extra
+  RPC call is needed: the `getEvents` response already carries `latestLedger`
+  (the tip as the RPC server sees it), which we now keep separate from the
+  highest ledger we actually applied (`indexer_last_processed_ledger`). Lag is
+  reported as 0 when a batch comes back short of `limit`, since a short page
+  means the RPC handed us everything it had and a quiet chain should not alert.
+  Both values are persisted on `sync_state` as `lastLedger` and
+  `lastProcessedLedger`.
 - Tracing runs in local-only mode (no real OTLP exporter wired) until
   `@opentelemetry/api` and an exporter package are installed and
   `OTEL_EXPORTER_OTLP_ENDPOINT` is configured — the code is written to pick

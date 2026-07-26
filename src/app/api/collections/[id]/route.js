@@ -2,29 +2,29 @@ import { NextResponse } from "next/server";
 import { withApiHardening } from "@/lib/api/hardening";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { withAuthorization } from "@/lib/auth/authorize";
 
 export const runtime = "nodejs";
 
-export async function GET(request, { params }) {
-  return withApiHardening(
-    request,
-    { route: "collection_detail", rateLimit: { limit: 80, windowMs: 60_000 } },
-    async () => {
+export const GET = withApiHardening(
+  withAuthorization(
+    async (authorizedRequest, { params }) => {
       try {
+        const { userId } = authorizedRequest;
         const db = await getDb();
-        const collectionId = (await params).id;
+        const collectionId = params.id;
 
         let query = {};
         try {
           query._id = new ObjectId(collectionId);
         } catch (e) {
-          return NextResponse.json({ error: "Invalid collection ID" }, { status: 400 });
+          return errorResponse("Invalid collection ID", 400);
         }
 
         const collection = await db.collection("collections").findOne(query);
 
         if (!collection) {
-          return NextResponse.json({ error: "Collection not found" }, { status: 404 });
+          return errorResponse("Collection not found", 404);
         }
 
         // Fetch materials in this collection
@@ -38,8 +38,24 @@ export async function GET(request, { params }) {
 
         return NextResponse.json({ ...collection, materials });
       } catch (err) {
-        return NextResponse.json({ error: "Server error" }, { status: 500 });
+        console.error("[api/collections/[id]] GET error:", err);
+        return errorResponse("Server error", 500);
       }
+    },
+    {
+      checkOwnership: async (userId, fullUser, request, { params }) => {
+        const db = await getDb();
+        const collectionId = params.id;
+        let query = {};
+        try {
+          query._id = new ObjectId(collectionId);
+        } catch (e) {
+          return false; // Invalid ID, deny access
+        }
+        const collection = await db.collection("collections").findOne(query);
+        return collection && collection.creatorId === userId;
+      },
     }
-  );
-}
+  ),
+  { route: "collection_detail", rateLimit: { limit: 80, windowMs: 60_000 } }
+);

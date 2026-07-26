@@ -1,8 +1,8 @@
-import { getDb } from "@/lib/mongodb";
-import { pollOutbox, completeOutboxEvent, failOutboxEvent, OUTBOX_EVENT_TYPES } from "@/lib/outbox";
-import { broadcastPurchaseEvent } from "@/lib/webhooks/sender";
+import { getDb } from "../mongodb.js";
+import { pollOutbox, completeOutboxEvent, failOutboxEvent, OUTBOX_EVENT_TYPES } from "../outbox.js";
+import { broadcastPurchaseEvent } from "../webhooks/sender.js";
 
-export async function processOutboxEvents() {
+export async function processOutboxEvents(sender = broadcastPurchaseEvent) {
   const db = await getDb();
   const events = await pollOutbox(db, 10, 30000);
 
@@ -21,7 +21,7 @@ export async function processOutboxEvents() {
         // In this architecture, we consider the outbox event successfully dispatched
         // if broadcastPurchaseEvent executes without throwing an unhandled exception.
         
-        await broadcastPurchaseEvent(event.payload.materialId, event.payload);
+        await sender(event.payload.materialId, event.payload);
       } else {
         console.warn(`[Outbox Worker] Unknown event type: ${event.type}`);
       }

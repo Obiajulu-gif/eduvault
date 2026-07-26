@@ -2,6 +2,8 @@ import { getDb } from '@/lib/mongodb';
 import { verifyFileBytes, verifyManifestDigest } from './manifest';
 import { getManifest, isManifestWithdrawn, getLatestManifest } from './registry';
 
+export { verifyManifestDigest };
+
 /**
  * Download verification — ensures file bytes match the purchased manifest
  * before reporting download success. Supports both CID-based IPFS verification

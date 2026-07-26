@@ -1,0 +1,29 @@
+{
+  "//": [
+    "Report-only type-check configuration. The codebase is JavaScript with",
+    "JSDoc annotations rather than TypeScript, so `checkJs` currently reports",
+    "well over a thousand findings that are mostly missing parameter",
+    "annotations rather than defects. Making this a blocking gate would",
+    "require a typed-JSDoc migration, which belongs in its own issue.",
+    "",
+    "CI runs `npm run typecheck` without failing the build so the number stays",
+    "visible and can be driven down deliberately. Run it locally before",
+    "opening a PR that touches shared library code."
+  ],
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
+    "skipLibCheck": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*.js", "src/**/*.jsx"],
+  "exclude": ["node_modules", ".next", "archive", "**/__tests__/**", "**/*.test.js"]
+}

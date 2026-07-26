@@ -1,0 +1,140 @@
+name: CI
+
+# Primary quality gate. The scope here mirrors issue #101: a fresh clone must
+# pass clean-install, lockfile integrity, lint, build, unit/integration tests
+# and migration validation, and must do so without exposing repository secrets
+# to fork pull requests.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+
+# Least privilege: this workflow only reads the repository. It requests no
+# write scopes and no id-token, so a compromised step cannot push, comment, or
+# mint a deployment.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # Cancel superseded runs on feature branches, but never on the protected
+  # branches — a push to main/develop should always complete so its status is
+  # recorded against the commit that will be deployed.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
+jobs:
+  quality:
+    name: Lint, build, and test
+    runs-on: ubuntu-latest
+    env:
+      # Deliberately non-production values. CI validates the same required
+      # settings a deployment needs without any real secret being present, so
+      # pull requests from forks run the full suite safely — there is nothing
+      # here worth exfiltrating.
+      CI: "true"
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_URL: https://ci.eduvault.invalid
+      MONGODB_URI: mongodb+srv://ci-user:ci-password@ci.example.invalid/eduvault-ci
+      MONGODB_DB: eduvault-ci
+      JWT_SECRET: ci-only-jwt-secret-with-at-least-32-characters
+      PINATA_JWT: ci-only-pinata-token
+      NEXT_PUBLIC_GATEWAY_URL: https://gateway.pinata.cloud
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Must satisfy engines.node (>=20.16), which is where
+          # process.getBuiltinModule — used by telemetry context resolution —
+          # became available.
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # `npm ci` — not `npm install` — so the job fails on lockfile drift
+      # instead of silently rewriting it. This is what makes "fails on a fresh
+      # clone when the lockfile is stale" real.
+      - name: Install dependencies (clean, lockfile-strict)
+        run: npm ci
+
+      - name: Lockfile integrity
+        run: npm run check:lockfile
+
+      - name: Dependency license policy
+        run: npm run check:licenses
+      - name: Install dependencies
+        env:
+          NODE_ENV: development
+        run: npm install
+
+      - name: Validate CI environment configuration
+        run: npm run check:ci-env
+
+      - name: Lint
+        run: npm run lint
+
+      # Report-only: the codebase is JSDoc-annotated JavaScript, so checkJs
+      # surfaces many advisory findings. Kept visible without blocking until a
+      # typed-JSDoc pass drives the count down (see docs/ci-and-quality-gates.md).
+      - name: Type-check (advisory)
+        run: npm run typecheck || echo "::warning::typecheck reported findings (advisory, non-blocking)"
+
+      - name: Production build
+        run: npm run build
+
+      - name: Backend unit tests
+        run: npm run test:backend
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Smart contract tests
+        run: npm run test:contracts
+
+  migrations:
+    name: Migration validation
+    runs-on: ubuntu-latest
+    services:
+      # Migrations run against a real MongoDB but do not use transactions, so a
+      # standalone server is sufficient here (the indexer's transactional path
+      # is exercised separately with a replica set).
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: "true"
+      MONGODB_TEST_URI: mongodb://127.0.0.1:27017
+      MONGODB_URI: mongodb://127.0.0.1:27017/eduvault-ci
+      MONGODB_DB: eduvault-ci
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies (clean, lockfile-strict)
+        run: npm ci
+
+      - name: Run migrations forward and validate
+        run: npm run test:migrations
+
+      - name: Verify zero database drift
+        run: |
+          npm run db:migrate
+          npm run db:drift

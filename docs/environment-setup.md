@@ -70,6 +70,41 @@ Run focused checks before opening a pull request, and add broader checks when yo
 
 ## Operational Scripts
 
-- `npm run indexer:stellar` starts the Stellar indexer prototype.
+- `npm run indexer:stellar` runs the Stellar indexer as a long-lived service: it
+  polls for new events, checkpoints its cursor to `sync_state` after every
+  batch, backs off exponentially on RPC failures, and shuts down cleanly on
+  SIGINT/SIGTERM. Tunable via `INDEXER_POLL_INTERVAL_MS` (default 5000),
+  `INDEXER_BATCH_LIMIT` (100), and `INDEXER_BACKOFF_MIN_MS` / `INDEXER_BACKOFF_MAX_MS`.
+- `npm run indexer:stellar:once` processes a single batch and exits. Use this
+  for cron-style deployments and one-shot rebuilds.
+- `npm run indexer:stellar:recover` audits Horizon against the database and
+  re-indexes payments that map to a known but unsettled purchase. Payments it
+  cannot match to a purchase are reported as `orphanedTransactions` for manual
+  review rather than written, because a payment carries no `materialId` of its
+  own and inventing one grants access to a material that does not exist.
 - `node scripts/reprocess-deadletter.mjs` retries dead-lettered indexer events.
+  Only `retryable` rows are swept by default; rows that exhausted
+  `INDEXER_MAX_RETRIES` (default 3) are left in the terminal `failed` state
+  until an operator opts into them explicitly.
+- `npm run indexer:repair -- 100` reconciles at most 100 legacy, interrupted,
+  or failed event receipts. The command is bounded and safe to rerun because
+  projections are idempotent.
 - `node scripts/backup-mongodb.mjs` runs the MongoDB backup helper when configured.
+
+## Quality gate scripts
+
+These back the CI gates described in [ci-and-quality-gates.md](./ci-and-quality-gates.md).
+Run them before opening a PR that touches dependencies or shared library code.
+
+- `npm run check:lockfile` fails if `package-lock.json` is out of sync with
+  `package.json`, or if a competing `bun.lock` / `pnpm-lock.yaml` reappears.
+  This project standardises on npm (`packageManager` field).
+- `npm run check:licenses` fails on newly introduced GPL/AGPL/SSPL/unlicensed
+  production dependencies. Two pre-existing exceptions are allowlisted and
+  documented.
+- `npm run typecheck` runs `checkJs` over the JSDoc-annotated source. Advisory
+  only — it reports findings but does not fail CI.
+- `npm run test:smoke` runs black-box smoke checks against a deployed preview
+  (`SMOKE_BASE_URL=<url> npm run test:smoke`).
+- `npm run test:migrations` runs the migrations forward against a MongoDB
+  instance (`MONGODB_TEST_URI`, defaults to `mongodb://127.0.0.1:27017`).

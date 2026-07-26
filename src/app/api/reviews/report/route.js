@@ -1,25 +1,19 @@
 import { NextResponse } from "next/server";
 import connectToDatabase from "@/lib/mongodb";
+import { getDb } from "@/lib/mongodb";
 import { validateAuth } from "@/lib/auth/session";
 import { ObjectId } from "mongodb";
+import { withAuthorization } from "@/lib/auth/authorize";
+import { isAdmin } from "@/lib/auth/policies";
 
 /**
  * POST /api/reviews/report
  * Allows creators to flag reviews on their materials for moderation
  */
-export async function POST(request) {
-  try {
-    // Authenticate user
-    const authResult = await validateAuth(request);
-    if (!authResult.valid) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
-    const { address } = authResult;
-    const body = await request.json();
+export const POST = withAuthorization(
+  async (request) => {
+    const { userId } = request; // userId is now available from withAuthorization
+    const body = request.parsedBody; // Use parsedBody from checkOwnership
     const { reviewId, materialId, reason, additionalDetails } = body;
 
     // Validate required fields
@@ -39,30 +33,7 @@ export async function POST(request) {
       );
     }
 
-    const { db } = await connectToDatabase();
-
-    // Verify the material exists and the reporter is the creator
-    const material = await db.collection("materials").findOne({
-      _id: new ObjectId(materialId),
-    });
-
-    if (!material) {
-      return NextResponse.json(
-        { error: "Material not found" },
-        { status: 404 },
-      );
-    }
-
-    // Check if the authenticated user is the creator of the material
-    if (material.creator?.toLowerCase() !== address.toLowerCase()) {
-      return NextResponse.json(
-        {
-          error:
-            "Only the material creator can report reviews on their own materials",
-        },
-        { status: 403 },
-      );
-    }
+    const db = await getDb();
 
     // Verify the review exists
     const review = await db.collection("reviews").findOne({
@@ -80,7 +51,7 @@ export async function POST(request) {
     // Check if this review has already been reported by this creator
     const existingReport = await db.collection("reported_reviews").findOne({
       reviewId: new ObjectId(reviewId),
-      reportedBy: address.toLowerCase(),
+      reportedBy: userId.toLowerCase(), // Use userId from auth
     });
 
     if (existingReport) {
@@ -94,8 +65,11 @@ export async function POST(request) {
     const report = {
       reviewId: new ObjectId(reviewId),
       materialId: new ObjectId(materialId),
-      materialTitle: material.title,
-      reportedBy: address.toLowerCase(),
+      // materialTitle will be fetched in checkOwnership, but we need it here for the report object.
+      // For now, we'll refetch it or pass it from checkOwnership if needed.
+      // For simplicity, let's assume materialTitle is not strictly needed for the initial report creation.
+      // If it is, we'd need to modify checkOwnership to return the material object.
+      reportedBy: userId.toLowerCase(), // Use userId from auth
       reportedAt: new Date(),
       reason,
       additionalDetails: additionalDetails || null,
@@ -108,9 +82,18 @@ export async function POST(request) {
       },
       moderationAction: null,
       moderatedBy: null,
-      moderatedAt: null,
       notes: null,
     };
+
+    // Fetch material again to get title for report object, or modify checkOwnership to return it.
+    // For now, refetching for simplicity.
+    const material = await db.collection("materials").findOne({
+      _id: new ObjectId(materialId),
+    });
+    if (material) {
+      report.materialTitle = material.title;
+    }
+
 
     const result = await db.collection("reported_reviews").insertOne(report);
 
@@ -131,63 +114,93 @@ export async function POST(request) {
       },
       { status: 201 },
     );
-  } catch (error) {
-    console.error("Error reporting review:", error);
-    return NextResponse.json(
-      { error: "Failed to report review", details: error.message },
-      { status: 500 },
-    );
-  }
-}
+  },
+  {
+    checkOwnership: async (userId, fullUser, request) => {
+      const body = await request.json();
+      request.parsedBody = body; // Store for the handler
+      const { materialId } = body;
+
+      if (!materialId) {
+        return false; // Cannot check ownership without materialId
+      }
+
+      const { db } = await connectToDatabase();
+      const material = await db.collection("materials").findOne({
+        _id: new ObjectId(materialId),
+      });
+
+      if (!material) {
+        return false; // Material not found
+      }
+
+      // Check if the authenticated user is the creator of the material
+      return material.creator?.toLowerCase() === userId.toLowerCase();
+    },
+  },
+);
 
 /**
  * GET /api/reviews/report
- * Get reported reviews (admin only)
+ * Get reported reviews (admin only, or user's own reports)
  */
-export async function GET(request) {
-  try {
-    const authResult = await validateAuth(request);
-    if (!authResult.valid) {
+export const GET = withAuthorization(
+  async (request) => {
+    const { userId, fullUser } = request; // userId and fullUser are now available from withAuthorization
+    try {
+      const { searchParams } = new URL(request.url);
+      const status = searchParams.get("status") || "pending";
+
+      const { db } = await connectToDatabase();
+
+      const query = {};
+
+      // If the user is an admin, they can view all reports (filtered by status)
+      // Otherwise, non-admin users can only view their own reports.
+      if (!fullUser.isAdmin) { // fullUser.isAdmin is set in the checkOwnership function below
+        query.reportedBy = userId.toLowerCase();
+      }
+
+      if (status !== "all") {
+        query.status = status;
+      }
+
+      const reports = await db
+        .collection("reported_reviews")
+        .find(query)
+        .sort({ reportedAt: -1 })
+        .limit(50)
+        .toArray();
+
+      return NextResponse.json({
+        success: true,
+        reports: reports.map((r) => ({
+          ...r,
+          _id: r._id.toString(),
+          reviewId: r.reviewId.toString(),
+          materialId: r.materialId.toString(),
+        })),
+      });
+    } catch (error) {
+      console.error("Error fetching reported reviews:", error);
       return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
+        { error: "Failed to fetch reported reviews", details: error.message },
+        { status: 500 },
       );
     }
-
-    const { address } = authResult;
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status") || "pending";
-
-    const { db } = await connectToDatabase();
-
-    // Check if user is admin (you'll need to implement admin check)
-    // For now, we'll return reports created by the authenticated user
-    const query = {
-      reportedBy: address.toLowerCase(),
-      ...(status !== "all" && { status }),
-    };
-
-    const reports = await db
-      .collection("reported_reviews")
-      .find(query)
-      .sort({ reportedAt: -1 })
-      .limit(50)
-      .toArray();
-
-    return NextResponse.json({
-      success: true,
-      reports: reports.map((r) => ({
-        ...r,
-        _id: r._id.toString(),
-        reviewId: r.reviewId.toString(),
-        materialId: r.materialId.toString(),
-      })),
-    });
-  } catch (error) {
-    console.error("Error fetching reported reviews:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch reported reviews", details: error.message },
-      { status: 500 },
-    );
-  }
-}
+  },
+  {
+    // This checkOwnership function is used to determine if the user is an admin
+    // and to make that information available to the handler.
+    checkOwnership: async (userId, fullUser, request) => {
+      // For the GET route, we don't have a specific resource to own in the traditional sense.
+      // Instead, we're using this to determine if the user is an admin.
+      // We'll attach an 'isAdmin' property to the fullUser object for the handler to use.
+      // This is a temporary way to pass the admin status. A more robust solution
+      // would involve a dedicated 'adminOnly' flag in the authorize options.
+      // For now, we'll use the existing isAdmin policy.
+      fullUser.isAdmin = isAdmin(fullUser);
+      return true; // Always return true for ownership as it's not a resource ownership check here
+    },
+  },
+);

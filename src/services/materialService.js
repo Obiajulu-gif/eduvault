@@ -63,5 +63,26 @@ export const materialService = {
     const searchParams = new URLSearchParams({ ...params, sort: 'trending' });
     return apiClient(`/api/market-materials?${searchParams.toString()}`);
   },
+
+  publishMaterial: async (id, { contractId } = {}) => {
+    return apiClient(`/api/materials/${id}/publish`, {
+      method: 'POST',
+      body: contractId ? { contractId } : {},
+    });
+  },
+
+  closeMaterial: async (id, { reason } = {}) => {
+    return apiClient(`/api/materials/${id}/close`, {
+      method: 'POST',
+      body: reason ? { reason } : {},
+    });
+  },
+
+  cancelMaterial: async (id, { reason } = {}) => {
+    return apiClient(`/api/materials/${id}/cancel`, {
+      method: 'POST',
+      body: reason ? { reason } : {},
+    });
+  },
 };
 
