@@ -46,6 +46,8 @@
     "clean:intents:dry": "DRY_RUN=true node scripts/clean-stale-intents.mjs",
     "test:migrations": "node --test tests/migrations/*.test.mjs",
     "db:migrate": "node scripts/migrations/migrate-db.mjs",
+    "db:drift": "node scripts/migrations/check-drift.mjs",
+    "db:seed": "node scripts/seed-db.mjs",
     "db:indexes": "node scripts/setup-db-indexes.js"
   },
   "dependencies": {

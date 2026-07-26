@@ -133,3 +133,8 @@ jobs:
 
       - name: Run migrations forward and validate
         run: npm run test:migrations
+
+      - name: Verify zero database drift
+        run: |
+          npm run db:migrate
+          npm run db:drift
