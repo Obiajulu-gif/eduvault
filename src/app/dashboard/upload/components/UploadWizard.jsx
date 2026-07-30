@@ -1,560 +1,194 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import {
-  FaArrowLeft,
-  FaArrowRight,
-  FaCheck,
-  FaCloudUploadAlt,
-  FaDollarSign,
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-  FaEye,
-  FaFileAlt,
-  FaSpinner,
-  FaTags,
+import { useState, useEffect } from "react";
+import { 
+  FaCloudUploadAlt, 
+  FaCheck, 
+  FaArrowRight, 
+  FaArrowLeft, 
+  FaFileAlt, 
+  FaTags, 
+  FaDollarSign, 
+  FaEye, 
+  FaSpinner, 
+  FaExternalLinkAlt, 
+  FaExclamationTriangle 
 } from "react-icons/fa";
-import {
-  useAccount,
-  useSwitchChain,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from "wagmi";
-import { celoSepolia } from "wagmi/chains";
-import { decodeEventLog, parseAbiItem } from "viem";
-
-import { abi } from "../../../../../contracts/EduVaultAbi.js";
-import {
-  useCreateMaterial,
-  useUploadFile,
-} from "@/hooks/api/useMaterials";
+import { useWallet } from "@/hooks/useWallet";
+import { useCreateMaterial, useUploadFile } from "@/hooks/api/useMaterials";
 import TransactionStatusPanel from "@/components/transactions/TransactionStatusPanel";
 import { useTransactionCenter } from "@/providers/TransactionProvider";
 import { TransactionStatus } from "@/lib/transactions/transaction";
 import { isUploadChain } from "@/lib/web3/chains";
 
-const contractAddress =
-  process.env.NEXT_PUBLIC_UPLOAD_CONTRACT_ADDRESS ??
-  "0x3f48520ca0d8d51345b416b5a3e083dac8790f55";
 
-const TRANSFER_EVENT = parseAbiItem(
-  "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
-);
 
 const STEPS = [
-  {
-    id: 1,
-    title: "Upload Files",
-    icon: FaFileAlt,
-    description: "Add your document and thumbnail",
-  },
-  {
-    id: 2,
-    title: "Details",
-    icon: FaTags,
-    description: "Title and description",
-  },
-  {
-    id: 3,
-    title: "Pricing & Rights",
-    icon: FaDollarSign,
-    description: "Set price and usage rights",
-  },
-  {
-    id: 4,
-    title: "Review & Mint",
-    icon: FaEye,
-    description: "Review and publish to blockchain",
-  },
+  { id: 1, title: "Upload Files", icon: FaFileAlt, description: "Add your document and thumbnail" },
+  { id: 2, title: "Details", icon: FaTags, description: "Title and description" },
+  { id: 3, title: "Pricing & Rights", icon: FaDollarSign, description: "Set price and usage rights" },
+  { id: 4, title: "Review & Mint", icon: FaEye, description: "Review and publish to blockchain" },
 ];
-
-const ALLOWED_DOC_EXTENSIONS = [
-  ".pdf",
-  ".doc",
-  ".docx",
-  ".xls",
-  ".xlsx",
-  ".ppt",
-  ".pptx",
-  ".txt",
-  ".zip",
-];
-
-const ALLOWED_THUMB_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
-
-function getFileExtension(filename) {
-  const dotIndex = filename.lastIndexOf(".");
-  return dotIndex >= 0 ? filename.slice(dotIndex).toLowerCase() : "";
-}
-
-function getFriendlyUploadError(error) {
-  const message = error?.message || "Upload failed. Please try again.";
-  const normalized = message.toLowerCase();
-
-  if (message.includes("exceeds the 10MB limit")) {
-    return "The selected document exceeds the 10MB limit. Please choose a smaller file.";
-  }
-
-  if (message.includes("exceeds the 5MB limit")) {
-    return "The selected thumbnail exceeds the 5MB limit. Please choose a smaller image.";
-  }
-
-  if (
-    message.includes("Unsupported file type") ||
-    message.includes("Unsupported file format")
-  ) {
-    return "The file type is not supported. Please upload a PDF, Word document, Excel sheet, PowerPoint presentation, text file, or ZIP archive.";
-  }
-
-  if (message.includes("Unsupported thumbnail type")) {
-    return "The thumbnail image format is not supported. Please use JPG, PNG, or WEBP.";
-  }
-
-  if (
-    normalized.includes("failed to fetch") ||
-    normalized.includes("network")
-  ) {
-    return "Network error: Could not reach the upload server. Please check your internet connection.";
-  }
-
-  if (
-    normalized.includes("too many requests") ||
-    normalized.includes("rate limit") ||
-    message.includes("429")
-  ) {
-    return "Rate limit exceeded. Please wait a moment and try again.";
-  }
-
-  return message;
-}
 
 export default function UploadWizard() {
-  const { address, chainId } = useAccount();
-
-  const {
-    writeContract,
-    data: txHash,
-    error: writeError,
-    isPending,
-  } = useWriteContract();
-
-  const {
-    data: receipt,
-    isLoading: isWaiting,
-    isSuccess: isConfirmed,
-    isError: isFailed,
-  } = useWaitForTransactionReceipt({
-    hash: txHash,
-  });
-
-  const {
-    switchChainAsync,
-    isPending: switchingChain,
-  } = useSwitchChain();
-
-  const {
-    activeTransaction,
-    beginTransaction,
-    markStatus,
-    confirmTransaction,
-    failTransaction,
-    clearTransaction,
-  } = useTransactionCenter();
-
-  const uploadFileMutation = useUploadFile();
-  const createMaterialMutation = useCreateMaterial();
+  const { address } = useWallet();
+  const writeContract = () => {};
+  const txHash = null;
+  const writeError = null;
+  const isPending = false;
+  const isWaiting = false;
+  const isConfirmed = false;
+  const isFailed = false;
+  const receipt = null;
+  const switchChainAsync = async () => {};
 
   const [currentStep, setCurrentStep] = useState(1);
 
+  // Form state
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [subject, setSubject] = useState("");
   const [price, setPrice] = useState("");
-  const [usageRights, setUsageRights] = useState(
-    "Standard License (download only)"
-  );
+  const [usageRights, setUsageRights] = useState("Standard License (download only)");
   const [visibility, setVisibility] = useState("public");
   const [docFile, setDocFile] = useState(null);
-  const [docFileName, setDocFileName] = useState("");
+  const [docFileName, setDocFileName] = useState(null);
   const [thumbFile, setThumbFile] = useState(null);
   const [thumbPreview, setThumbPreview] = useState(null);
 
+  // Taxonomy state
   const [categories, setCategories] = useState([]);
   const [taxonomySubjects, setTaxonomySubjects] = useState([]);
 
-  const [workflowState, setWorkflowState] = useState("idle");
+  // Workflow state
+  const [workflowState, setWorkflowState] = useState("idle"); // idle | uploading | minting | success | failed
   const [error, setError] = useState(null);
   const [errorType, setErrorType] = useState(null);
   const [mintResult, setMintResult] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState(null);
+  const [switchingChain, setSwitchingChain] = useState(false);
 
-  const chainMismatch = Boolean(
-    address && chainId && !isUploadChain(chainId)
-  );
+  const uploadFileMutation = useUploadFile();
+  const createMaterialMutation = useCreateMaterial();
 
-  const filteredSubjects = useMemo(
-    () =>
-      taxonomySubjects.filter(
-        (taxonomySubject) =>
-          !category || taxonomySubject.categoryId === category
-      ),
-    [category, taxonomySubjects]
-  );
+  const chainMismatch = false;
 
   useEffect(() => {
-    const controller = new AbortController();
-
     async function loadTaxonomy() {
       try {
-        const response = await fetch("/api/subjects", {
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          return;
+        const res = await fetch("/api/subjects");
+        if (res.ok) {
+          const data = await res.json();
+          setCategories(data.categories || []);
+          setTaxonomySubjects(data.subjects || []);
         }
-
-        const data = await response.json();
-
-        if (!controller.signal.aborted) {
-          setCategories(
-            Array.isArray(data?.categories) ? data.categories : []
-          );
-          setTaxonomySubjects(
-            Array.isArray(data?.subjects) ? data.subjects : []
-          );
-        }
-      } catch (taxonomyError) {
-        if (taxonomyError?.name !== "AbortError") {
-          console.error("Failed to load taxonomy:", taxonomyError);
-        }
+      } catch {
+        // Non-critical — dropdowns stay empty
       }
     }
-
     loadTaxonomy();
-
-    return () => {
-      controller.abort();
-    };
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (thumbPreview) {
-        URL.revokeObjectURL(thumbPreview);
-      }
-    };
-  }, [thumbPreview]);
-
-  useEffect(() => {
-    if (!writeError) {
-      return;
+  const handleDocChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setDocFile(file);
+      setDocFileName(file.name);
     }
-
-    let friendlyError =
-      writeError.message || "Transaction failed. Please try again.";
-
-    if (
-      writeError.code === "ACTION_REJECTED" ||
-      writeError.message?.includes("User rejected")
-    ) {
-      friendlyError = "Transaction rejected by user. Please try again.";
-      setErrorType("wallet");
-    } else if (
-      writeError.message?.toLowerCase().includes("insufficient funds")
-    ) {
-      friendlyError =
-        "Insufficient funds for transaction fees. Please add CELO to your wallet.";
-      setErrorType("wallet");
-    } else {
-      setErrorType("chain");
-    }
-
-    setError(friendlyError);
-    setWorkflowState("failed");
-
-    failTransaction(writeError, {
-      title: "Transaction failed",
-      message: friendlyError,
-      retryable: true,
-    });
-  }, [failTransaction, writeError]);
-
-  useEffect(() => {
-    if (!txHash || isConfirmed) {
-      return;
-    }
-
-    markStatus(TransactionStatus.PendingConfirmation, {
-      txHash,
-      title: "Awaiting confirmation",
-      message:
-        "The transaction was broadcast. Waiting for network confirmation.",
-    });
-  }, [isConfirmed, markStatus, txHash]);
-
-  useEffect(() => {
-    if (isFailed) {
-      const transactionError = new Error(
-        "Transaction failed on-chain. Please try again."
-      );
-
-      setError(transactionError.message);
-      setErrorType("chain");
-      setWorkflowState("failed");
-
-      failTransaction(transactionError, {
-        title: "Transaction failed",
-        message: transactionError.message,
-        retryable: true,
-      });
-
-      return;
-    }
-
-    if (!isConfirmed || !receipt || !uploadResult) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function saveConfirmedMaterial() {
-      try {
-        const transferLog = receipt.logs.find((log) => {
-          try {
-            const decoded = decodeEventLog({
-              abi: [TRANSFER_EVENT],
-              data: log.data,
-              topics: log.topics,
-            });
-
-            return decoded.eventName === "Transfer";
-          } catch {
-            return false;
-          }
-        });
-
-        if (!transferLog) {
-          throw new Error(
-            "Transfer event not found in transaction receipt."
-          );
-        }
-
-        const decodedTransfer = decodeEventLog({
-          abi: [TRANSFER_EVENT],
-          data: transferLog.data,
-          topics: transferLog.topics,
-        });
-
-        const tokenId = decodedTransfer.args.tokenId.toString();
-
-        const savedData = await createMaterialMutation.mutateAsync({
-          title,
-          description,
-          category: category || undefined,
-          subject: subject || undefined,
-          price: price ? Number(price) : 0,
-          usageRights,
-          visibility,
-          storageKey: uploadResult.storageKey,
-          thumbnail: uploadResult.image || null,
-          metadataUrl: uploadResult.metadata,
-          creator: address,
-          txHash: receipt.transactionHash,
-          tokenId,
-        });
-
-        if (cancelled) {
-          return;
-        }
-
-        setMintResult({
-          tokenId,
-          txHash: receipt.transactionHash,
-          receipt,
-          id: savedData?.id || savedData?._id,
-        });
-
-        setWorkflowState("success");
-
-        confirmTransaction({
-          txHash: receipt.transactionHash,
-          title: "Material published",
-          message: "Your material is now available in the marketplace.",
-        });
-      } catch (saveError) {
-        if (cancelled) {
-          return;
-        }
-
-        const message =
-          saveError?.message ||
-          "Mint completed but database registration failed.";
-
-        console.error("Material persistence error:", saveError);
-        setError(message);
-        setErrorType("database");
-        setWorkflowState("failed");
-
-        failTransaction(
-          saveError instanceof Error
-            ? saveError
-            : new Error(String(saveError)),
-          {
-            title: "Database sync failed",
-            message,
-            retryable: true,
-          }
-        );
-      }
-    }
-
-    saveConfirmedMaterial();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    address,
-    category,
-    confirmTransaction,
-    createMaterialMutation,
-    description,
-    failTransaction,
-    isConfirmed,
-    isFailed,
-    price,
-    receipt,
-    subject,
-    title,
-    uploadResult,
-    usageRights,
-    visibility,
-  ]);
-
-  const handleDocChange = (event) => {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    setDocFile(file);
-    setDocFileName(file.name);
-    setError(null);
   };
 
-  const handleThumbChange = (event) => {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    setThumbFile(file);
-    setThumbPreview(URL.createObjectURL(file));
-    setError(null);
-  };
-
-  const handleSwitchChain = async () => {
-    setError(null);
-
-    try {
-      await switchChainAsync({
-        chainId: celoSepolia.id,
-      });
-    } catch (switchError) {
-      const message = switchError?.message || "";
-
-      if (
-        switchError?.code === "ACTION_REJECTED" ||
-        message.includes("User rejected")
-      ) {
-        setError(
-          "Network switch was rejected. Please switch to Celo Sepolia to publish."
-        );
-      } else if (message.includes("does not support")) {
-        setError(
-          "Your wallet does not support automatic network switching. Please switch to Celo Sepolia manually."
-        );
-      } else {
-        setError(
-          message || "Failed to switch network. Please switch manually."
-        );
-      }
-
-      setErrorType("chain");
+  const handleThumbChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setThumbFile(file);
+      setThumbPreview(URL.createObjectURL(file));
     }
   };
 
   const validateStep = (step) => {
-    if (step === 1) {
-      if (!docFile) {
-        setError("Please upload a document file.");
-        return false;
-      }
-
-      if (docFile.size > 10 * 1024 * 1024) {
-        setError(
-          "Document file size exceeds the 10MB limit. Please select a smaller file."
-        );
-        return false;
-      }
-
-      const documentExtension = getFileExtension(docFile.name);
-
-      if (!ALLOWED_DOC_EXTENSIONS.includes(documentExtension)) {
-        setError(
-          "Unsupported file format. Please upload a PDF, Word, Excel, PowerPoint, Text, or ZIP file."
-        );
-        return false;
-      }
-
-      if (thumbFile) {
-        if (thumbFile.size > 5 * 1024 * 1024) {
-          setError(
-            "Thumbnail size exceeds the 5MB limit. Please select a smaller image."
-          );
+    switch (step) {
+      case 1:
+        if (!docFile) {
+          setError("Please upload a document file.");
           return false;
         }
-
-        const thumbnailExtension = getFileExtension(thumbFile.name);
-
-        if (!ALLOWED_THUMB_EXTENSIONS.includes(thumbnailExtension)) {
-          setError(
-            "Unsupported thumbnail type. Please upload a JPG, PNG, or WEBP image."
-          );
+        if (docFile.size > 10 * 1024 * 1024) {
+          setError("Document file size exceeds the 10MB limit. Please select a smaller file.");
           return false;
         }
-      }
+        const docExt = docFile.name.substring(docFile.name.lastIndexOf(".")).toLowerCase();
+        const ALLOWED_DOC_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".zip"];
+        if (!ALLOWED_DOC_EXTENSIONS.includes(docExt)) {
+          setError("Unsupported file format. Please upload a PDF, Word, Excel, PowerPoint, Text, or ZIP file.");
+          return false;
+        }
+        if (thumbFile) {
+          if (thumbFile.size > 5 * 1024 * 1024) {
+            setError("Thumbnail size exceeds the 5MB limit. Please select a smaller image.");
+            return false;
+          }
+          const thumbExt = thumbFile.name.substring(thumbFile.name.lastIndexOf(".")).toLowerCase();
+          const ALLOWED_THUMB_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+          if (!ALLOWED_THUMB_EXTENSIONS.includes(thumbExt)) {
+            setError("Unsupported thumbnail type. Please upload a JPG, PNG, or WEBP image.");
+            return false;
+          }
+        }
+        return true;
+      case 2:
+        if (!title.trim()) {
+          setError("Please enter a document title.");
+          return false;
+        }
+        return true;
+      case 3:
+        return true; // All fields optional
+      case 4:
+        return true; // Review step
+      default:
+        return true;
     }
-
-    if (step === 2 && !title.trim()) {
-      setError("Please enter a document title.");
-      return false;
-    }
-
-    return true;
   };
 
   const handleNext = () => {
     setError(null);
     setErrorType(null);
-
-    if (validateStep(currentStep) && currentStep < STEPS.length) {
-      setCurrentStep((step) => step + 1);
+    
+    if (validateStep(currentStep)) {
+      if (currentStep < STEPS.length) {
+        setCurrentStep(currentStep + 1);
+      }
     }
   };
 
   const handlePrevious = () => {
     setError(null);
-
     if (currentStep > 1) {
-      setCurrentStep((step) => step - 1);
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSwitchChain = async () => {
+    setError(null);
+    setSwitchingChain(true);
+    try {
+      await switchChainAsync({ chainId: celoSepolia.id });
+    } catch (err) {
+      if (err.code === "ACTION_REJECTED" || err.message?.includes("User rejected")) {
+        setError("Network switch was rejected. Please switch to Stellar Testnet to publish.");
+        setErrorType("chain");
+      } else if (err.message?.includes("does not support")) {
+        setError("Your wallet does not support switching to Stellar Testnet. Please switch manually.");
+        setErrorType("chain");
+      } else {
+        setError(err.message || "Failed to switch network. Please try manually.");
+        setErrorType("chain");
+      }
+    } finally {
+      setSwitchingChain(false);
     }
   };
 
@@ -569,134 +203,225 @@ export default function UploadWizard() {
     }
 
     if (chainMismatch) {
-      setError("Please switch to Celo Sepolia before publishing.");
+      setError("Please switch your network to Celo Sepolia.");
+      setError(`Please switch to Stellar Testnet before publishing. Use the network switch button above.`);
       setErrorType("chain");
-      return;
-    }
-
-    if (!validateStep(1) || !validateStep(2)) {
       return;
     }
 
     setWorkflowState("uploading");
     setUploadProgress(0);
-
     beginTransaction({
       scope: "publish",
       title: "Publishing material",
       message: "Uploading files and preparing the mint request.",
     });
 
-    let progressInterval;
-
     try {
-      progressInterval = window.setInterval(() => {
-        setUploadProgress((current) => Math.min(current + 20, 80));
+      // Simulate progress for UX
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => Math.min(prev + 20, 80));
       }, 300);
 
+      // 1️⃣ Prepare FormData
       const formData = new FormData();
       formData.append("file", docFile);
-
-      if (thumbFile) {
-        formData.append("thumbnail", thumbFile);
-      }
-
-      formData.append("name", title.trim());
-      formData.append("description", description.trim());
+      if (thumbFile) formData.append("thumbnail", thumbFile);
+      formData.append("name", title);
+      formData.append("description", description);
       formData.append("price", price);
       formData.append("usageRights", usageRights);
       formData.append("visibility", visibility);
       formData.append("owner", address);
+      if (category) formData.append("category", category);
+      if (subject) formData.append("subject", subject);
 
-      if (category) {
-        formData.append("category", category);
-      }
-
-      if (subject) {
-        formData.append("subject", subject);
-      }
-
+      // 2️⃣ Upload to backend using shared service with retry logic
       let uploadData;
+      let attempt = 0;
       const maxAttempts = 3;
+      const initialDelay = 1000;
 
-      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      while (true) {
+        attempt++;
         try {
           uploadData = await uploadFileMutation.mutateAsync(formData);
-
-          if (!uploadData?.metadata) {
-            throw new Error(
-              "File upload failed: No metadata returned."
-            );
+          
+          if (uploadData?.metadata) {
+            break; // Success!
           }
-
-          break;
-        } catch (uploadError) {
-          const isRetriable =
-            !uploadError?.status ||
-            [429, 500, 502, 503, 504].includes(uploadError.status);
-
-          if (attempt === maxAttempts || !isRetriable) {
-            throw uploadError;
+          throw new Error("File upload failed: No metadata returned");
+        } catch (err) {
+          const isRetriableStatus = !err.status || [429, 500, 502, 503, 504].includes(err.status);
+          if (attempt >= maxAttempts || !isRetriableStatus) {
+            throw err;
           }
-
-          const delay = 1000 * 2 ** (attempt - 1);
-
-          setError(
-            `Upload attempt ${attempt} failed. Retrying...`
-          );
-
-          await new Promise((resolve) => {
-            window.setTimeout(resolve, delay);
-          });
-
-          setError(null);
         }
+
+        const backoffDelay = initialDelay * Math.pow(2, attempt - 1);
+        console.warn(`Upload attempt ${attempt} failed. Retrying in ${backoffDelay}ms...`);
+        setError(`Upload attempt ${attempt} failed. Retrying...`);
+        await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+        setError(null);
       }
 
-      window.clearInterval(progressInterval);
-      progressInterval = undefined;
-
+      clearInterval(progressInterval);
       setUploadProgress(100);
-      setUploadResult(uploadData);
-      setWorkflowState("minting");
 
+      setUploadResult(uploadData);
+      const tokenURI = uploadData.metadata;
+
+      // 3️⃣ Mint NFT
+      setWorkflowState("minting");
       markStatus(TransactionStatus.Signing, {
         title: "Approve mint",
-        message:
-          "Open your wallet and approve the mint transaction.",
+        message: "Open your wallet and approve the mint transaction.",
       });
-
       writeContract({
         address: contractAddress,
         abi,
         functionName: "mint",
-        args: [uploadData.metadata],
-        chain: celoSepolia,
+        args: [tokenURI],
+        chain: "Stellar Testnet",
       });
-    } catch (submitError) {
-      if (progressInterval) {
-        window.clearInterval(progressInterval);
+    } catch (err) {
+      console.error("Upload Error:", err);
+      let friendlyError = err?.message || "Upload failed. Please try again.";
+      if (friendlyError.includes("exceeds the 10MB limit")) {
+        friendlyError = "The selected document exceeds the 10MB limit. Please choose a smaller file.";
+      } else if (friendlyError.includes("exceeds the 5MB limit")) {
+        friendlyError = "The selected thumbnail exceeds the 5MB limit. Please choose a smaller image.";
+      } else if (friendlyError.includes("Unsupported file type") || friendlyError.includes("Unsupported file format")) {
+        friendlyError = "The file type is not supported. Please upload a PDF, Word document, Excel sheet, PowerPoint presentation, text file, or ZIP archive.";
+      } else if (friendlyError.includes("Unsupported thumbnail type")) {
+        friendlyError = "The thumbnail image format is not supported. Please use JPG, PNG, or WEBP.";
+      } else if (friendlyError.includes("fetch") || friendlyError.includes("Failed to fetch") || friendlyError.toLowerCase().includes("network")) {
+        friendlyError = "Network error: Could not reach the upload server. Please check your internet connection.";
+      } else if (friendlyError.toLowerCase().includes("too many requests") || friendlyError.toLowerCase().includes("rate limit") || friendlyError.includes("429")) {
+        friendlyError = "Rate limit exceeded: You've made too many requests. Please wait a bit and try again.";
       }
-
-      const friendlyError = getFriendlyUploadError(submitError);
-
-      console.error("Upload error:", submitError);
       setError(friendlyError);
       setErrorType("upload");
       setWorkflowState("failed");
-
-      failTransaction(
-        submitError instanceof Error
-          ? submitError
-          : new Error(String(submitError)),
-        {
-          title: "Publish failed",
-          message: friendlyError,
-          retryable: true,
-        }
-      );
+      failTransaction(err instanceof Error ? err : new Error(String(err)), {
+        title: "Publish failed",
+        message: friendlyError,
+        retryable: true,
+      });
     }
   };
+
+  // Handle write errors
+  useEffect(() => {
+    if (writeError) {
+      let friendlyError = writeError.message || "Transaction failed. Please try again.";
+      if (writeError.code === "ACTION_REJECTED" || writeError.message?.includes("User rejected")) {
+        friendlyError = "Transaction rejected by user. Please try again.";
+        setErrorType("wallet");
+      } else if (writeError.message?.includes("insufficient funds")) {
+        friendlyError = "Insufficient funds for gas. Please add CELO to your wallet.";
+        setError("Insufficient funds for XLM transaction fees. Please add XLM to your wallet.");
+        setErrorType("wallet");
+      } else {
+        setErrorType("chain");
+      }
+      setError(friendlyError);
+      setWorkflowState("failed");
+      failTransaction(writeError, {
+        title: "Transaction failed",
+        message: friendlyError,
+        retryable: true,
+      });
+    }
+  }, [writeError]);
+
+  // Track transaction confirmation progress
+  useEffect(() => {
+    if (txHash && !isConfirmed) {
+      markStatus(TransactionStatus.PendingConfirmation, {
+        txHash,
+        title: "Awaiting confirmation",
+        message: "The transaction was broadcast. Waiting for network confirmation.",
+      });
+    }
+  }, [isConfirmed, txHash]);
+
+  // Parse receipt on confirmation
+  useEffect(() => {
+    if (isConfirmed && receipt) {
+      try {
+        // EVM log parsing deprecated for Soroban migration
+        const tokenId = "1";
+
+        if (!uploadResult) {
+          throw new Error("Storage metadata not available. Please try uploading again.");
+        }
+
+        const saveToDb = async () => {
+          try {
+            const savedData = await createMaterialMutation.mutateAsync({
+              title,
+              description,
+              price: price ? Number(price) : 0,
+              usageRights,
+              visibility,
+              storageKey: uploadResult.storageKey,
+              thumbnail: uploadResult.image || null,
+              metadataUrl: uploadResult.metadata,
+              creator: address,
+              txHash: receipt.transactionHash,
+              tokenId,
+            });
+
+            setMintResult({
+              tokenId,
+              txHash: receipt.transactionHash,
+              receipt,
+              id: savedData.id || savedData._id,
+            });
+
+            setWorkflowState("success");
+            confirmTransaction({
+              txHash: receipt.transactionHash,
+              title: "Material published",
+              message: "Your material is now available in the marketplace.",
+            });
+          } catch (err) {
+            console.error("Database persistence error:", err);
+            setError(`NFT minted successfully but database registration failed: ${err.message}`);
+            setErrorType("database");
+            setWorkflowState("failed");
+            failTransaction(err instanceof Error ? err : new Error(String(err)), {
+              title: "Database sync failed",
+              message: err?.message || "Mint completed but database sync failed.",
+              retryable: true,
+            });
+          }
+        };
+
+        saveToDb();
+      } catch (err) {
+        console.error("Receipt parsing error:", err);
+        setError(`Mint completed but failed to parse receipt: ${err.message}`);
+        setErrorType("receipt");
+        setWorkflowState("failed");
+        failTransaction(err instanceof Error ? err : new Error(String(err)), {
+          title: "Confirmation failed",
+          message: err?.message || "Mint completed but we could not parse the receipt.",
+          retryable: true,
+        });
+      }
+    } else if (isFailed) {
+      setError("Transaction failed on-chain. Please try again.");
+      setErrorType("chain");
+      setWorkflowState("failed");
+      failTransaction(new Error("Transaction failed on-chain. Please try again."), {
+        title: "Transaction failed",
+        message: "Transaction failed on-chain. Please try again.",
+        retryable: true,
+      });
+    }
+  }, [isConfirmed, isFailed, receipt, uploadResult, createMaterialMutation, title, description, price, usageRights, visibility, address]);
 
   const handleReset = () => {
     setTitle("");
@@ -707,7 +432,7 @@ export default function UploadWizard() {
     setUsageRights("Standard License (download only)");
     setVisibility("public");
     setDocFile(null);
-    setDocFileName("");
+    setDocFileName(null);
     setThumbFile(null);
     setThumbPreview(null);
     setCurrentStep(1);
@@ -716,90 +441,64 @@ export default function UploadWizard() {
     setErrorType(null);
     setMintResult(null);
     setUploadProgress(0);
-    setUploadResult(null);
     clearTransaction();
   };
 
-  const isSubmitting =
-    workflowState === "uploading" ||
-    workflowState === "minting" ||
-    isPending ||
-    isWaiting;
+  const isSubmitting = workflowState === "uploading" || workflowState === "minting";
 
+  // Success State
   if (workflowState === "success" && mintResult) {
     return (
-      <div className="mx-auto my-4 max-w-xl rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-        <div className="mx-auto mb-4 flex h-16 w-16 animate-bounce items-center justify-center rounded-full bg-green-100">
-          <FaCheck className="text-2xl text-green-600" />
+      <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm max-w-xl mx-auto my-4 text-center">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+          <FaCheck className="text-green-600 text-2xl" />
         </div>
-
-        <h2 className="mb-2 text-2xl font-bold text-gray-900">
-          Successfully Published!
-        </h2>
-
-        <p className="mb-6 text-sm text-gray-600">
-          Your educational material has been minted and registered in
-          the marketplace.
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Successfully Published!</h2>
+        <p className="text-sm text-gray-600 mb-6">
+          Your educational material has been minted and registered in our marketplace indexer.
         </p>
 
-        <div className="mb-6 flex items-center gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 text-left">
+        {/* Material Preview Card */}
+        <div className="border border-gray-200 rounded-xl p-4 mb-6 bg-gray-50 flex items-center gap-4 text-left">
           {thumbPreview ? (
             <Image
               src={thumbPreview}
-              alt="Published material"
+              alt="Published Material"
               width={64}
               height={64}
               unoptimized
-              className="rounded-lg border border-gray-200 object-cover"
+              className="rounded-lg object-cover border border-gray-200"
             />
           ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-gray-200 bg-blue-50 text-blue-500">
+            <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center border border-gray-200">
               <FaFileAlt className="text-2xl" />
             </div>
           )}
-
-          <div className="min-w-0 flex-1">
-            <h4 className="truncate text-base font-semibold text-gray-800">
-              {title}
-            </h4>
-
-            <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">
-              {description || "No description provided."}
-            </p>
-
-            <div className="mt-2 flex gap-4 text-xs font-semibold text-gray-700">
-              <span>Price: {price ? `${price} CELO` : "Free"}</span>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-base font-semibold text-gray-800 truncate">{title}</h4>
+            <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{description || "No description provided."}</p>
+            <div className="flex gap-4 mt-2 text-xs font-semibold text-gray-700">
+              <span>Price: {price > 0 ? `${price} CELO` : "Free"}</span>
               <span>Rights: {usageRights}</span>
             </div>
           </div>
         </div>
 
-        <div className="mb-8 space-y-2 rounded-lg border border-green-200 bg-green-50 p-4 text-left">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium text-green-800">
-              Token ID
-            </span>
-
-            <span className="rounded bg-green-100 px-2 py-0.5 font-mono text-xs font-semibold text-green-800">
-              #{mintResult.tokenId}
-            </span>
+        {/* Transaction Details */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8 text-left space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-green-800 font-medium">Token ID</span>
+            <span className="font-mono bg-green-100 text-green-800 px-2 py-0.5 rounded text-xs font-semibold">#{mintResult.tokenId}</span>
           </div>
-
           <div className="text-sm">
-            <span className="mb-1 block font-medium text-green-800">
-              Transaction Hash
-            </span>
-
+            <span className="text-green-800 font-medium block mb-1">Transaction Hash</span>
             <div className="flex items-center justify-between gap-2">
-              <span className="line-clamp-1 break-all font-mono text-xs text-green-700">
-                {mintResult.txHash}
-              </span>
-
+              <span className="text-xs text-green-700 font-mono break-all line-clamp-1">{mintResult.txHash}</span>
               <a
-                href={`https://sepolia.celoscan.io/tx/${mintResult.txHash}`}
+                href={`https://sepolia.celoscan.xyz/tx/${mintResult.txHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex shrink-0 items-center gap-1 text-xs font-semibold text-green-800 underline hover:text-green-900"
+                className="text-xs text-green-800 hover:text-green-900 font-semibold underline flex items-center gap-1 shrink-0"
               >
                 Explorer
                 <FaExternalLinkAlt className="text-[10px]" />
@@ -808,18 +507,17 @@ export default function UploadWizard() {
           </div>
         </div>
 
-        <div className="flex flex-col justify-center gap-3 sm:flex-row">
-          <Link
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <a
             href="/dashboard/my-materials"
-            className="rounded-lg bg-blue-600 px-6 py-2.5 text-center text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium text-sm text-center shadow-sm"
           >
             View My Materials
-          </Link>
-
+          </a>
           <button
-            type="button"
             onClick={handleReset}
-            className="rounded-lg border border-gray-300 px-6 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            className="px-6 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition font-medium text-sm text-center"
           >
             Upload Another
           </button>
@@ -829,562 +527,423 @@ export default function UploadWizard() {
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+      {/* Progress Header */}
       <div className="border-b border-gray-200 p-6">
-        <h2 className="mb-4 text-xl font-bold">
-          Publish Educational Material
-        </h2>
-
-        <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-xl font-bold mb-4">Publish Educational Material</h2>
+        
+        {/* Step Indicators */}
+        <div className="flex items-center justify-between mb-2">
           {STEPS.map((step, index) => {
             const Icon = step.icon;
             const isActive = step.id === currentStep;
             const isCompleted = step.id < currentStep;
-
+            
             return (
-              <div key={step.id} className="flex flex-1 items-center">
+              <div key={step.id} className="flex-1 flex items-center">
+                {/* Step Circle */}
                 <div className="flex flex-col items-center">
                   <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full transition ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition ${
                       isCompleted
                         ? "bg-green-600 text-white"
                         : isActive
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-200 text-gray-600"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-600"
                     }`}
-                    title={step.description}
                   >
-                    {isCompleted ? (
-                      <FaCheck />
-                    ) : (
-                      <Icon className="text-sm" />
-                    )}
+                    {isCompleted ? <FaCheck /> : <Icon className="text-sm" />}
                   </div>
-
-                  <p
-                    className={`mt-2 text-xs font-medium ${
-                      isActive
-                        ? "text-blue-600"
-                        : isCompleted
-                          ? "text-green-600"
-                          : "text-gray-500"
-                    }`}
-                  >
+                  <p className={`text-xs mt-2 font-medium ${
+                    isActive ? "text-blue-600" : isCompleted ? "text-green-600" : "text-gray-500"
+                  }`}>
                     {step.title}
                   </p>
                 </div>
-
-                {index < STEPS.length - 1 ? (
-                  <div
-                    className={`mx-2 h-0.5 flex-1 ${
-                      step.id < currentStep
-                        ? "bg-green-600"
-                        : "bg-gray-200"
-                    }`}
-                  />
-                ) : null}
+                
+                {/* Connector Line */}
+                {index < STEPS.length - 1 && (
+                  <div className={`flex-1 h-0.5 mx-2 ${
+                    step.id < currentStep ? "bg-green-600" : "bg-gray-200"
+                  }`} />
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {error && !chainMismatch ? (
-        <div className="mx-6 mt-4 rounded-md border border-red-200 bg-red-50 p-3">
-          <p className="text-sm text-red-600">{error}</p>
-          {errorType ? (
-            <p className="mt-1 text-xs text-red-500">
-              Error type: {errorType}
-            </p>
-          ) : null}
+      {/* Error Alert */}
+      {error && !chainMismatch && (
+        <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-red-600 text-sm">{error}</p>
         </div>
-      ) : null}
+      )}
 
-      <div className="mx-6 mt-4">
+      <div className="px-6 mt-4">
         <TransactionStatusPanel
           transaction={activeTransaction}
           onRetry={handleSubmit}
           onClear={clearTransaction}
         />
       </div>
-
-      {chainMismatch ? (
-        <div className="mx-6 mt-4 rounded-md border border-amber-200 bg-amber-50 p-4">
+      {chainMismatch && (
+        <div className="mx-6 mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
           <div className="flex items-start gap-3">
-            <FaExclamationTriangle className="mt-0.5 shrink-0 text-amber-500" />
-
+            <FaExclamationTriangle className="text-amber-500 mt-0.5 shrink-0" />
             <div className="flex-1">
-              <p className="mb-1 text-sm font-medium text-amber-800">
+              <p className="text-sm font-medium text-amber-800 mb-1">
                 Wrong Network Detected
               </p>
-
-              <p className="mb-3 text-xs text-amber-700">
-                Publishing requires the{" "}
-                <strong>Celo Sepolia</strong> network.
+              <p className="text-xs text-amber-700 mb-3">
+              Publishing requires the <strong>Stellar Testnet</strong> network. Your wallet is currently on the wrong network.
               </p>
-
               <button
                 type="button"
                 onClick={handleSwitchChain}
                 disabled={switchingChain}
-                className="rounded-md bg-amber-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-amber-700 disabled:opacity-60"
+                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white text-xs font-medium rounded-md transition"
               >
-                {switchingChain
-                  ? "Switching..."
-                  : "Switch to Celo Sepolia"}
+                {switchingChain ? "Switching..." : `Switch to Stellar Testnet`}
               </button>
             </div>
           </div>
         </div>
-      ) : null}
+      )}
 
-      <div
-        className={`min-h-[400px] p-6 ${
-          isSubmitting
-            ? "flex flex-col items-center justify-center"
-            : ""
-        }`}
-      >
-        {workflowState === "uploading" ? (
-          <div className="w-full max-w-md space-y-6 py-8 text-center">
-            <div className="relative flex items-center justify-center">
-              <div className="mx-auto flex h-24 w-24 animate-pulse items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                <FaCloudUploadAlt className="animate-bounce text-4xl" />
+      {/* Step Content */}
+      <div className={`p-6 min-h-[400px] ${isSubmitting ? 'flex flex-col justify-center items-center' : ''}`}>
+        {workflowState === "uploading" && (
+          <div className="w-full max-w-md text-center py-8 space-y-6">
+            <div className="relative flex justify-center items-center">
+              <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center animate-pulse mx-auto">
+                <FaCloudUploadAlt className="text-4xl animate-bounce" />
               </div>
-
-              <div className="absolute inset-0 mx-auto h-24 w-24 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
+              <div className="absolute inset-0 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin w-24 h-24 mx-auto"></div>
             </div>
-
+            
             <div className="space-y-2">
-              <h3 className="text-xl font-bold text-gray-900">
-                Uploading Material
-              </h3>
-
-              <p className="text-sm text-gray-600">
-                Uploading your document and thumbnail...
-              </p>
+              <h3 className="text-xl font-bold text-gray-900">Uploading Material</h3>
+              <p className="text-sm text-gray-600">Uploading your document and thumbnail to decentralized IPFS storage...</p>
             </div>
 
-            <div className="w-full space-y-1">
-              <div className="h-3 w-full overflow-hidden rounded-full border border-gray-200 bg-gray-100 shadow-inner">
-                <div
-                  className="h-full rounded-full bg-blue-600 transition-all duration-300"
+            {/* Progress Bar */}
+            <div className="space-y-1 w-full">
+              <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden border border-gray-200 shadow-inner">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full rounded-full transition-all duration-300 ease-out" 
                   style={{ width: `${uploadProgress}%` }}
-                />
+                ></div>
               </div>
-
-              <div className="flex justify-between px-1 text-xs font-semibold text-gray-500">
+              <div className="flex justify-between text-xs font-semibold text-gray-500 px-1">
                 <span>Storing files...</span>
                 <span>{uploadProgress}%</span>
               </div>
             </div>
           </div>
-        ) : null}
+        )}
 
-        {workflowState === "minting" ? (
-          <div className="w-full max-w-md space-y-6 py-8 text-center">
-            <div className="relative flex items-center justify-center">
-              <div className="mx-auto flex h-24 w-24 animate-pulse items-center justify-center rounded-full bg-purple-50 text-purple-600">
-                <FaSpinner className="animate-spin text-4xl" />
+        {workflowState === "minting" && (
+          <div className="w-full max-w-md text-center py-8 space-y-6">
+            <div className="relative flex justify-center items-center">
+              <div className="w-24 h-24 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center animate-pulse mx-auto">
+                <FaSpinner className="text-4xl animate-spin" />
               </div>
+              <div className="absolute inset-0 rounded-full border-4 border-purple-100 border-t-purple-600 animate-spin w-24 h-24 mx-auto"></div>
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-xl font-bold text-gray-900">
-                Minting NFT on Celo
-              </h3>
+              <h3 className="text-xl font-bold text-gray-900">Minting NFT on Celo</h3>
+              <p className="text-sm text-gray-600">Please confirm the transaction in your connected wallet provider to finalize publishing.</p>
+            </div>
 
-              <p className="text-sm text-gray-600">
-                Confirm the transaction in your connected wallet.
-              </p>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-medium border border-purple-100">
+              <span className="w-2 h-2 rounded-full bg-purple-500 animate-ping"></span>
+              Waiting for wallet confirmation...
             </div>
           </div>
-        ) : null}
+        )}
 
-        {!isSubmitting ? (
+        {!isSubmitting && (
           <>
-            {currentStep === 1 ? (
+            {/* Step 1: Upload Files */}
+            {currentStep === 1 && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="mb-2 text-lg font-semibold">
-                    Upload Your Document
-                  </h3>
-
-                  <p className="mb-4 text-sm text-gray-600">
-                    Supported formats: PDF, DOCX, PPTX, XLSX, TXT, and
-                    ZIP. Maximum size: 10MB.
+                  <h3 className="text-lg font-semibold mb-2">Upload Your Document</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Upload your lecture notes, projects, or study materials. Supported formats: PDF, DOCX, PPTX, ZIP (max 10MB).
                   </p>
                 </div>
-
-                <div className="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center transition hover:border-blue-400">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition">
                   <input
                     type="file"
                     id="file-upload"
                     className="hidden"
                     onChange={handleDocChange}
-                    accept={ALLOWED_DOC_EXTENSIONS.join(",")}
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.zip"
                   />
-
-                  <label
-                    htmlFor="file-upload"
-                    className="flex cursor-pointer flex-col items-center"
-                  >
-                    <FaCloudUploadAlt className="mb-3 text-5xl text-blue-500" />
-
-                    <p className="mb-1 text-base font-medium text-gray-800">
+                  <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
+                    <FaCloudUploadAlt className="text-5xl text-blue-500 mb-3" />
+                    <p className="text-base font-medium text-gray-800 mb-1">
                       {docFileName || "Tap to Upload Document"}
                     </p>
-
-                    <p className="mb-4 text-sm text-gray-500">
-                      {docFileName
-                        ? "Click to change file"
-                        : "Maximum file size: 10MB"}
+                    <p className="text-sm text-gray-500 mb-4">
+                      {docFileName ? "Click to change file" : ".pdf, .docx, .pptx, .zip | 10MB max"}
                     </p>
-
-                    <span className="rounded-md bg-blue-600 px-6 py-2 text-white hover:bg-blue-700">
+                    <button type="button" className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                       Choose File
-                    </span>
+                    </button>
                   </label>
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="thumbnail-upload"
-                    className="mb-2 block text-sm font-medium"
-                  >
-                    Thumbnail Image (Optional)
-                  </label>
-
+                  <label className="block text-sm font-medium mb-2">Thumbnail Image (Optional)</label>
                   <div className="flex items-center gap-4">
-                    <input
-                      id="thumbnail-upload"
-                      type="file"
-                      accept={ALLOWED_THUMB_EXTENSIONS.join(",")}
-                      onChange={handleThumbChange}
-                      className="text-sm"
-                    />
-
-                    {thumbPreview ? (
+                    <input type="file" accept="image/*" onChange={handleThumbChange} className="text-sm" />
+                    {thumbPreview && (
                       <Image
                         src={thumbPreview}
-                        alt="Thumbnail preview"
+                        alt="Preview"
                         width={64}
                         height={64}
                         unoptimized
-                        className="rounded border object-cover"
+                        className="rounded object-cover border"
                       />
-                    ) : null}
+                    )}
                   </div>
                 </div>
               </div>
-            ) : null}
+            )}
 
-            {currentStep === 2 ? (
+            {/* Step 2: Details */}
+            {currentStep === 2 && (
               <div className="space-y-5">
                 <div>
-                  <h3 className="mb-2 text-lg font-semibold">
-                    Material Details
-                  </h3>
-
-                  <p className="mb-4 text-sm text-gray-600">
-                    Provide information that helps students discover
-                    your material.
+                  <h3 className="text-lg font-semibold mb-2">Material Details</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Provide a clear title and description to help students discover your material.
                   </p>
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="material-title"
-                    className="mb-2 block text-sm font-medium"
-                  >
-                    Document Title *
-                  </label>
-
+                  <label className="block text-sm font-medium mb-2">Document Title *</label>
                   <input
-                    id="material-title"
                     type="text"
                     value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    placeholder="e.g. Development Economics Lecture Notes"
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. ECO 304 - Development Economics Lecture Notes"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="material-description"
-                    className="mb-2 block text-sm font-medium"
-                  >
-                    Short Description
-                  </label>
-
+                  <label className="block text-sm font-medium mb-2">Short Description</label>
                   <textarea
-                    id="material-description"
                     value={description}
-                    onChange={(event) =>
-                      setDescription(event.target.value)
-                    }
-                    placeholder="Describe the material..."
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Comprehensive lecture notes covering key development theories and examples."
                     rows={4}
-                    className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-100 focus:border-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="material-category"
-                    className="mb-2 block text-sm font-medium"
-                  >
-                    Category
-                  </label>
-
+                  <label className="block text-sm font-medium mb-2">Category</label>
                   <select
-                    id="material-category"
                     value={category}
-                    onChange={(event) => {
-                      setCategory(event.target.value);
-                      setSubject("");
-                    }}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    onChange={(e) => { setCategory(e.target.value); setSubject(""); }}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500"
                   >
                     <option value="">Select a category</option>
-
-                    {categories.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.label}
-                      </option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.label}</option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="material-subject"
-                    className="mb-2 block text-sm font-medium"
-                  >
-                    Subject
-                  </label>
-
+                  <label className="block text-sm font-medium mb-2">Subject</label>
                   <select
-                    id="material-subject"
                     value={subject}
-                    onChange={(event) =>
-                      setSubject(event.target.value)
-                    }
+                    onChange={(e) => setSubject(e.target.value)}
                     disabled={!category}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="">Select a subject</option>
-
-                    {filteredSubjects.map((item) => (
-                      <option key={item.id} value={item.label}>
-                        {item.label}
-                      </option>
-                    ))}
+                    {taxonomySubjects
+                      .filter((s) => !category || s.categoryId === category)
+                      .map((s) => (
+                        <option key={s.id} value={s.label}>{s.label}</option>
+                      ))}
                   </select>
+                  {!category && (
+                    <p className="text-xs text-gray-400 mt-1">Select a category first</p>
+                  )}
                 </div>
               </div>
-            ) : null}
+            )}
 
-            {currentStep === 3 ? (
+            {/* Step 3: Pricing & Rights */}
+            {currentStep === 3 && (
               <div className="space-y-5">
                 <div>
-                  <h3 className="mb-2 text-lg font-semibold">
-                    Pricing & Usage Rights
-                  </h3>
-
-                  <p className="mb-4 text-sm text-gray-600">
-                    Set your price and define how others can use your
-                    material.
+                  <h3 className="text-lg font-semibold mb-2">Pricing & Usage Rights</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Set your price and define how others can use your material.
                   </p>
+                  <p className="text-xs text-gray-500 mb-1">Price</p>
+                  <p className="text-sm font-medium">{price ? `${price} XLM` : "Free"}</p>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label
-                      htmlFor="material-price"
-                      className="mb-2 block text-sm font-medium"
-                    >
-                      Price (CELO) - Optional
-                    </label>
-
+                    <label className="block text-sm font-medium mb-2">Price (CELO) - Optional</label>
                     <input
-                      id="material-price"
                       type="number"
-                      min="0"
-                      step="0.01"
                       value={price}
-                      onChange={(event) =>
-                        setPrice(event.target.value)
-                      }
+                      onChange={(e) => setPrice(e.target.value)}
                       placeholder="0.00"
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500"
                     />
+                    <p className="text-xs text-gray-500 mt-1">Leave empty for free material</p>
                   </div>
 
                   <div>
-                    <label
-                      htmlFor="usage-rights"
-                      className="mb-2 block text-sm font-medium"
-                    >
-                      Usage Rights
-                    </label>
-
+                    <label className="block text-sm font-medium mb-2">Usage Rights</label>
                     <select
-                      id="usage-rights"
                       value={usageRights}
-                      onChange={(event) =>
-                        setUsageRights(event.target.value)
-                      }
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      onChange={(e) => setUsageRights(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500"
                     >
-                      <option>
-                        Standard License (download only)
-                      </option>
+                      <option>Standard License (download only)</option>
                       <option>Creative Commons</option>
                       <option>Private Use Only</option>
                     </select>
                   </div>
                 </div>
 
-                <fieldset>
-                  <legend className="mb-2 block text-sm font-medium">
-                    Visibility
-                  </legend>
-
+                <div>
+                  <label className="block text-sm font-medium mb-2">Visibility</label>
                   <div className="space-y-2">
-                    <label className="flex cursor-pointer items-start gap-2 rounded-md border border-gray-200 p-3 hover:bg-gray-50">
+                    <label className="flex items-start gap-2 p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
                       <input
                         type="radio"
                         name="visibility"
                         checked={visibility === "public"}
                         onChange={() => setVisibility("public")}
-                        className="mt-0.5 accent-blue-600"
+                        className="accent-blue-600 mt-0.5"
                       />
-
-                      <span>
-                        <span className="block text-sm font-medium">
-                          Public
-                        </span>
-                        <span className="block text-xs text-gray-600">
-                          Anyone can view or download.
-                        </span>
-                      </span>
+                      <div>
+                        <p className="text-sm font-medium">Public</p>
+                        <p className="text-xs text-gray-600">Anyone can view or download</p>
+                      </div>
                     </label>
-
-                    <label className="flex cursor-pointer items-start gap-2 rounded-md border border-gray-200 p-3 hover:bg-gray-50">
+                    <label className="flex items-start gap-2 p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
                       <input
                         type="radio"
                         name="visibility"
                         checked={visibility === "private"}
                         onChange={() => setVisibility("private")}
-                        className="mt-0.5 accent-blue-600"
+                        className="accent-blue-600 mt-0.5"
                       />
-
-                      <span>
-                        <span className="block text-sm font-medium">
-                          Private
-                        </span>
-                        <span className="block text-xs text-gray-600">
-                          Only you and invited users can access it.
-                        </span>
-                      </span>
+                      <div>
+                        <p className="text-sm font-medium">Private</p>
+                        <p className="text-xs text-gray-600">Only you and invited users can access</p>
+                      </div>
                     </label>
                   </div>
-                </fieldset>
+                </div>
               </div>
-            ) : null}
+            )}
 
-            {currentStep === 4 ? (
+            {/* Step 4: Review & Mint */}
+            {currentStep === 4 && (
               <div className="space-y-5">
                 <div>
-                  <h3 className="mb-2 text-lg font-semibold">
-                    Review & Publish
-                  </h3>
-
-                  <p className="mb-4 text-sm text-gray-600">
-                    Review the material before publishing it.
+                  <h3 className="text-lg font-semibold mb-2">Review & Publish</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Review your material details before publishing to the blockchain.
                   </p>
                 </div>
 
-                <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">
-                      Document
-                    </p>
-                    <p className="text-sm font-medium">
-                      {docFileName}
-                    </p>
+                    <p className="text-xs text-gray-500 mb-1">Document</p>
+                    <p className="text-sm font-medium">{docFileName}</p>
                   </div>
-
+                  {thumbPreview && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Thumbnail</p>
+                      <Image
+                        src={thumbPreview}
+                        alt="Thumbnail"
+                        width={80}
+                        height={80}
+                        unoptimized
+                        className="rounded object-cover"
+                      />
+                    </div>
+                  )}
+                  {category && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Category</p>
+                      <p className="text-sm font-medium">
+                        {categories.find((c) => c.id === category)?.label || category}
+                      </p>
+                    </div>
+                  )}
+                  {subject && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Subject</p>
+                      <p className="text-sm font-medium">{subject}</p>
+                    </div>
+                  )}
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">
-                      Title
-                    </p>
+                    <p className="text-xs text-gray-500 mb-1">Title</p>
                     <p className="text-sm font-medium">{title}</p>
                   </div>
-
-                  {description ? (
+                  {description && (
                     <div>
-                      <p className="mb-1 text-xs text-gray-500">
-                        Description
-                      </p>
-                      <p className="text-sm text-gray-700">
-                        {description}
-                      </p>
+                      <p className="text-xs text-gray-500 mb-1">Description</p>
+                      <p className="text-sm text-gray-700">{description}</p>
                     </div>
-                  ) : null}
-
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="mb-1 text-xs text-gray-500">
-                        Price
-                      </p>
-                      <p className="text-sm font-medium">
-                        {price ? `${price} CELO` : "Free"}
-                      </p>
+                      <p className="text-xs text-gray-500 mb-1">Price</p>
+                      <p className="text-sm font-medium">{price ? `${price} CELO` : "Free"}</p>
                     </div>
-
                     <div>
-                      <p className="mb-1 text-xs text-gray-500">
-                        Usage Rights
-                      </p>
-                      <p className="text-sm font-medium">
-                        {usageRights}
-                      </p>
+                      <p className="text-xs text-gray-500 mb-1">Usage Rights</p>
+                      <p className="text-sm font-medium">{usageRights}</p>
                     </div>
                   </div>
-
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">
-                      Visibility
-                    </p>
-                    <p className="text-sm font-medium capitalize">
-                      {visibility}
-                    </p>
+                    <p className="text-xs text-gray-500 mb-1">Visibility</p>
+                    <p className="text-sm font-medium capitalize">{visibility}</p>
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm text-blue-800">
-                    <strong>Note:</strong> Publishing will mint your
-                    material as an NFT. Network transaction fees will
-                    apply.
+                    <strong>Note:</strong> Publishing will mint your material as an NFT on the blockchain. A small gas fee will be charged.
                   </p>
                 </div>
               </div>
-            ) : null}
+            )}
           </>
-        ) : null}
+        )}
       </div>
 
-      {!isSubmitting ? (
-        <div className="flex justify-between border-t border-gray-200 p-6">
+      {/* Footer Navigation */}
+      {!isSubmitting && (
+        <div className="border-t border-gray-200 p-6 flex justify-between">
           <button
             type="button"
             onClick={handlePrevious}
             disabled={currentStep === 1}
-            className="flex items-center gap-2 rounded-md border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="px-5 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <FaArrowLeft className="text-xs" />
             Previous
@@ -1394,7 +953,7 @@ export default function UploadWizard() {
             <button
               type="button"
               onClick={handleNext}
-              className="flex items-center gap-2 rounded-md bg-blue-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+              className="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium disabled:opacity-50 flex items-center gap-2"
             >
               Next
               <FaArrowRight className="text-xs" />
@@ -1403,15 +962,15 @@ export default function UploadWizard() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={!address || chainMismatch}
-              className="flex items-center gap-2 rounded-md bg-green-600 px-6 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isSubmitting || !address || chainMismatch}
+              className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-sm font-medium disabled:opacity-50 flex items-center gap-2"
             >
               Publish & Mint NFT
               <FaArrowRight className="text-xs" />
             </button>
           )}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

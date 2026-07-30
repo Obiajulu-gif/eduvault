@@ -12,6 +12,7 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { auditLog } from "@/lib/api/audit";
 import { withApiHardening } from "@/lib/api/hardening";
+import { errorResponse } from "@/lib/api/errorResponse";
 
 function getRefreshTokenFromCookie(request) {
   const cookieHeader = request.headers.get("cookie") || "";
@@ -28,16 +29,20 @@ export async function POST(request) {
 
       if (!oldRefreshToken) {
         auditLog({ event: "token_refresh_missing", route: "auth/refresh", method: "POST", status: 401 });
-        return NextResponse.json({ error: "No refresh token" }, { status: 401 });
+        return errorResponse("No refresh token", 401);
       }
 
       const rotation = await rotateRefreshToken(oldRefreshToken);
 
       if (!rotation) {
         auditLog({ event: "token_refresh_invalid", route: "auth/refresh", method: "POST", status: 401 });
-        const response = NextResponse.json({ error: "Invalid or expired refresh token" }, { status: 401 });
+        const response = errorResponse("Invalid or expired refresh token", 401);
         response.cookies.set("auth_token", "", { maxAge: 0, path: "/" });
         response.cookies.set("refresh_token", "", { maxAge: 0, path: "/api/auth/refresh" });
+        return response;
+      }
+
+      const db = await getDb();
       let user = null;
       try {
         user = await db.collection("users").findOne({ _id: new ObjectId(rotation.userId) });
@@ -80,5 +85,9 @@ export async function POST(request) {
 
       return response;
     }
-  );
+  ).catch((error) => {
+    console.error("[auth/refresh] POST error:", error);
+    auditLog({ event: "token_refresh_error", route: "auth/refresh", method: "POST", status: 500, error: error.message });
+    return errorResponse("Internal Server Error", 500);
+  });
 }

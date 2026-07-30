@@ -3,9 +3,10 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { auditLog } from "@/lib/api/audit";
-import { getUserFromCookie } from "@/lib/api/auth";
 import { withApiHardening } from "@/lib/api/hardening";
 import { getDb } from "@/lib/mongodb";
+import { withAuthorization } from "@/lib/auth/authorize";
+import { errorResponse } from "@/lib/api/errorResponse";
 import {
   FEEDBACK_COLLECTION,
   feedbackModerationPlaceholder,
@@ -28,11 +29,10 @@ async function findPublicMaterial(db, id) {
 }
 
 function feedbackFilter(id) {
-  const objectId = materialObjectId(id);
   return {
     $or: [
       { materialId: id },
-      ...(objectId ? [{ materialObjectId: objectId }] : []),
+      ...(materialObjectId(id) ? [{ materialObjectId: materialObjectId(id) }] : []),
     ],
     status: { $ne: "hidden" },
     moderationStatus: { $ne: "rejected" },
@@ -81,13 +81,13 @@ export async function GET(request, { params }) {
       try {
         const materialId = params?.id;
         if (!materialId || !ObjectId.isValid(materialId)) {
-          return NextResponse.json({ error: "Invalid material ID" }, { status: 400 });
+          return errorResponse("Invalid material ID", 400);
         }
 
         const db = await getDb();
         const material = await findPublicMaterial(db, materialId);
         if (!material) {
-          return NextResponse.json({ error: "Material not found" }, { status: 404 });
+          return errorResponse("Material not found", 404);
         }
 
         const items = await db
@@ -105,87 +105,85 @@ export async function GET(request, { params }) {
         });
       } catch (err) {
         auditLog({ event: "material_feedback_list_failed", route: "materials.feedback", method: "GET", status: 500, reason: err.message });
-        return NextResponse.json({ error: "Server error" }, { status: 500 });
+        return errorResponse("Server error", 500);
       }
     }
   );
 }
 
-export async function POST(request, { params }) {
-  return withApiHardening(
-    request,
-    { route: "materials.feedback", rateLimit: { limit: 30, windowMs: 60_000 } },
-    async () => {
-      try {
-        const materialId = params?.id;
-        if (!materialId || !ObjectId.isValid(materialId)) {
-          return NextResponse.json({ error: "Invalid material ID" }, { status: 400 });
+export const POST = withApiHardening(
+  async (request, { params }) => {
+    return withAuthorization(
+      async (authorizedRequest) => {
+        try {
+          const materialId = params?.id;
+          if (!materialId || !ObjectId.isValid(materialId)) {
+            return errorResponse("Invalid material ID", 400);
+          }
+
+          const { userId, fullUser } = authorizedRequest;
+
+          const payload = validateFeedbackPayload(await authorizedRequest.json());
+          const db = await getDb();
+          const material = await findPublicMaterial(db, materialId);
+          if (!material) {
+            return errorResponse("Material not found", 404);
+          }
+
+          const reviewerAddress = await getReviewerAddress(db, fullUser);
+          if (!reviewerAddress) {
+            return errorResponse("A wallet address is required to leave feedback.", 400);
+          }
+
+          if (isCreatorFeedback(material, reviewerAddress)) {
+            auditLog({ event: "creator_feedback_blocked", route: "materials.feedback", method: "POST", status: 403, actor: userId, materialId });
+            return errorResponse("Creators cannot score their own resource.", 403);
+          }
+
+          const now = new Date();
+          const materialObjectIdValue = new ObjectId(materialId);
+          const feedbackDoc = {
+            materialId,
+            materialObjectId: materialObjectIdValue,
+            score: payload.score,
+            rating: payload.score,
+            comment: payload.comment,
+            reviewerAddress,
+            reviewerId: userId,
+            reviewerName: fullUser.name || "",
+            verifiedBuyer: false,
+            moderationStatus: "pending_review",
+            status: "published",
+            updatedAt: now,
+          };
+
+          const result = await db.collection(FEEDBACK_COLLECTION).findOneAndUpdate(
+            { materialId, reviewerAddress },
+            { $set: feedbackDoc, $setOnInsert: { createdAt: now } },
+            { upsert: true, returnDocument: "after" }
+          );
+
+          const { items, averageScore, feedbackCount } = await updateMaterialFeedbackSummary(db, materialId);
+          const savedFeedback = result || items.find((item) => item.reviewerAddress === reviewerAddress) || feedbackDoc;
+
+          auditLog({ event: "material_feedback_saved", route: "materials.feedback", method: "POST", status: 200, actor: userId, materialId });
+          return NextResponse.json({
+            feedback: sanitizeFeedback(savedFeedback),
+            averageScore,
+            feedbackCount,
+            moderation: feedbackModerationPlaceholder(),
+          });
+        } catch (err) {
+          if (err.name === "ValidationError") {
+            return errorResponse(err.message, 400, err.details);
+          }
+
+          auditLog({ event: "material_feedback_save_failed", route: "materials.feedback", method: "POST", status: 500, reason: err.message });
+          return errorResponse("Server error", 500);
         }
-
-        const user = await getUserFromCookie(request);
-        if (!user) {
-          auditLog({ event: "auth_failed", route: "materials.feedback", method: "POST", status: 401 });
-          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const payload = validateFeedbackPayload(await request.json());
-        const db = await getDb();
-        const material = await findPublicMaterial(db, materialId);
-        if (!material) {
-          return NextResponse.json({ error: "Material not found" }, { status: 404 });
-        }
-
-        const reviewerAddress = await getReviewerAddress(db, user);
-        if (!reviewerAddress) {
-          return NextResponse.json({ error: "A wallet address is required to leave feedback." }, { status: 400 });
-        }
-
-        if (isCreatorFeedback(material, reviewerAddress)) {
-          auditLog({ event: "creator_feedback_blocked", route: "materials.feedback", method: "POST", status: 403, actor: user.sub, materialId });
-          return NextResponse.json({ error: "Creators cannot score their own resource." }, { status: 403 });
-        }
-
-        const now = new Date();
-        const materialObjectIdValue = new ObjectId(materialId);
-        const feedbackDoc = {
-          materialId,
-          materialObjectId: materialObjectIdValue,
-          score: payload.score,
-          rating: payload.score,
-          comment: payload.comment,
-          reviewerAddress,
-          reviewerId: user.sub || user.id || null,
-          reviewerName: user.name || "",
-          verifiedBuyer: false,
-          moderationStatus: "pending_review",
-          status: "published",
-          updatedAt: now,
-        };
-
-        const result = await db.collection(FEEDBACK_COLLECTION).findOneAndUpdate(
-          { materialId, reviewerAddress },
-          { $set: feedbackDoc, $setOnInsert: { createdAt: now } },
-          { upsert: true, returnDocument: "after" }
-        );
-
-        const { items, averageScore, feedbackCount } = await updateMaterialFeedbackSummary(db, materialId);
-        const savedFeedback = result || items.find((item) => item.reviewerAddress === reviewerAddress) || feedbackDoc;
-
-        auditLog({ event: "material_feedback_saved", route: "materials.feedback", method: "POST", status: 200, actor: user.sub, materialId });
-        return NextResponse.json({
-          feedback: sanitizeFeedback(savedFeedback),
-          averageScore,
-          feedbackCount,
-          moderation: feedbackModerationPlaceholder(),
-        });
-      } catch (err) {
-        if (err.name === "ValidationError") {
-          return NextResponse.json({ error: err.message, details: err.details }, { status: 400 });
-        }
-
-        auditLog({ event: "material_feedback_save_failed", route: "materials.feedback", method: "POST", status: 500, reason: err.message });
-        return NextResponse.json({ error: "Server error" }, { status: 500 });
-      }
-    }
-  );
-}
+      },
+      {}
+    )(request);
+  },
+  { route: "materials.feedback", rateLimit: { limit: 30, windowMs: 60_000 } }
+);

@@ -1,3 +1,5 @@
+import { normalizeExternalUrl, REMOTE_IMAGE_HOSTS } from "../security/input.js";
+
 export class StorageError extends Error {
   constructor(message, details = {}) {
     super(message);
@@ -35,13 +37,29 @@ export function validatePinataResponse(response, type = "file") {
  * @returns {string} The verified URL
  */
 export function validateGatewayUrl(url, type = "file") {
-  if (!url || typeof url !== "string" || !url.startsWith("http")) {
+  let normalized;
+  try {
+    const gatewayHost = process.env.NEXT_PUBLIC_GATEWAY_URL
+      ? new URL(process.env.NEXT_PUBLIC_GATEWAY_URL).hostname
+      : null;
+    normalized = normalizeExternalUrl(url, {
+      allowedHosts: [...REMOTE_IMAGE_HOSTS, gatewayHost].filter(Boolean),
+    });
+  } catch {
     throw new StorageError(`Invalid gateway URL returned for ${type}: "${url || ""}"`, {
       type,
       url,
     });
   }
-  return url;
+
+  // normalizeExternalUrl returns null for empty input rather than throwing, so
+  // a missing gateway URL used to pass straight through this validator and
+  // reach callers as null where they expect a verified string.
+  if (!normalized) {
+    throw new StorageError(`Missing gateway URL for ${type}`, { type, url });
+  }
+
+  return normalized;
 }
 
 /**

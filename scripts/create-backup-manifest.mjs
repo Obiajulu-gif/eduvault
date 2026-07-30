@@ -1,4 +1,3 @@
-
 #!/usr/bin/env node
 /**
  * Creates a versioned, integrity-checked backup manifest for EduVault.

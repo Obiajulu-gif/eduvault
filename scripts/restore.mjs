@@ -1,4 +1,3 @@
-
 #!/usr/bin/env node
 /**
  * Automated restore and validation script for EduVault.

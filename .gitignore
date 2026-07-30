@@ -5,6 +5,13 @@
 /.pnp
 .pnp.*
 .yarn/*
+
+# This project standardises on npm. Keep only package-lock.json committed;
+# competing lockfiles are rejected by `npm run check:lockfile`.
+bun.lock
+bun.lockb
+pnpm-lock.yaml
+yarn.lock
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases

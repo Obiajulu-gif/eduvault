@@ -1,4 +1,3 @@
-
 #!/usr/bin/env node
 /**
  * New, comprehensive backup script for EduVault.

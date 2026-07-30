@@ -1,37 +1,54 @@
+import assert from "node:assert/strict";
 import { test, describe, before, after, beforeEach } from "node:test";
-import assert from "node:assert";
-import { MongoClient, ObjectId } from "mongodb";
-import { config } from "dotenv";
+import { MongoClient } from "mongodb";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
+import * as dotenv from "dotenv";
 
-config({ path: ".env.local" });
-config({ path: ".env" });
+// For tests, load .env.local if present, else .env
+dotenv.config({ path: ".env.local" });
+dotenv.config({ path: ".env" });
 
 import { insertOutboxEvent, pollOutbox, completeOutboxEvent, failOutboxEvent, OUTBOX_STATUS, OUTBOX_EVENT_TYPES } from "../../src/lib/outbox.js";
 import { processOutboxEvents } from "../../src/lib/backend/outboxWorker.js";
+import { closeMongoConnection } from "../../src/lib/mongodb.js";
 import { PURCHASE_STATES, canTransition } from "../../src/lib/purchases/stateMachine.js";
-// We use a mock webhook sender in tests
-import * as webhookSender from "../../src/lib/webhooks/sender.js";
 
-const uri = process.env.MONGODB_URI || "mongodb://localhost:27017";
+
+const TEST_DB = "eduvault_test_outbox";
+
+let mongoServer;
+let client;
+let db;
+let dbAvailable = false;
 
 describe("Purchase Outbox & State Machine", () => {
-  let client;
-  let db;
-
   before(async () => {
-    client = new MongoClient(uri);
-    await client.connect();
-    db = client.db("eduvault_test");
-  });
+    try {
+      mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+      const uri = mongoServer.getUri();
+      // Override env var so outboxWorker uses the in-memory db
+      process.env.MONGODB_URI = uri;
+      process.env.MONGODB_DB = TEST_DB;
 
-  after(async () => {
-    if (client) {
-      await db.dropDatabase();
-      await client.close();
+      client = new MongoClient(uri, { serverSelectionTimeoutMS: 2000 });
+      await client.connect();
+      db = client.db(TEST_DB);
+      dbAvailable = true;
+    } catch (err) {
+      console.warn("[WARN] Skipping purchase-outbox tests: MongoDB not available. Details: " + err.message);
+      dbAvailable = false;
     }
   });
 
+  after(async () => {
+    if (db) await db.dropDatabase().catch(() => {});
+    if (client) await client.close();
+    await closeMongoConnection();
+    if (mongoServer) await mongoServer.stop();
+  });
+
   beforeEach(async () => {
+    if (!dbAvailable) return;
     await db.collection("outbox").deleteMany({});
     await db.collection("purchases").deleteMany({});
     await db.collection("entitlement_cache").deleteMany({});
@@ -42,7 +59,7 @@ describe("Purchase Outbox & State Machine", () => {
     assert.strictEqual(canTransition(PURCHASE_STATES.CONFIRMED, PURCHASE_STATES.PENDING), false);
   });
 
-  test("Outbox insertion and polling", async () => {
+  test("Outbox insertion and polling", async (t) => { if (!dbAvailable) return t.skip("MongoDB not available");
     const session = client.startSession();
     try {
       await session.withTransaction(async () => {
@@ -72,7 +89,7 @@ describe("Purchase Outbox & State Machine", () => {
     assert.strictEqual(completedEvent.lockedUntil, null);
   });
 
-  test("Transient and permanent downstream failures with dead-lettering", async () => {
+  test("Transient and permanent downstream failures with dead-lettering", async (t) => { if (!dbAvailable) return t.skip("MongoDB not available");
     await insertOutboxEvent(db, null, {
       type: OUTBOX_EVENT_TYPES.SEND_PURCHASE_WEBHOOK,
       payload: { materialId: "m2" },
@@ -112,43 +129,35 @@ describe("Purchase Outbox & State Machine", () => {
     assert.strictEqual(events.length, 0);
   });
 
-  test("Worker execution processes events and handles mock failures", async () => {
-    // Override broadcastPurchaseEvent behavior for testing
-    const originalBroadcast = webhookSender.broadcastPurchaseEvent;
-    
+  test("Worker execution processes events and handles mock failures", async (t) => { if (!dbAvailable) return t.skip("MongoDB not available");
     let calls = 0;
-    webhookSender.broadcastPurchaseEvent = async (materialId, payload) => {
+    const mockBroadcast = async (materialId, payload) => {
       calls++;
       if (payload.shouldFail) throw new Error("Mock failure");
       return true;
     };
 
-    try {
-      await insertOutboxEvent(db, null, {
-        type: OUTBOX_EVENT_TYPES.SEND_PURCHASE_WEBHOOK,
-        payload: { materialId: "m3", shouldFail: false },
-        idempotencyKey: "worker_test1",
-      });
+    await insertOutboxEvent(db, null, {
+      type: OUTBOX_EVENT_TYPES.SEND_PURCHASE_WEBHOOK,
+      payload: { materialId: "m3", shouldFail: false },
+      idempotencyKey: "worker_test1",
+    });
 
-      await insertOutboxEvent(db, null, {
-        type: OUTBOX_EVENT_TYPES.SEND_PURCHASE_WEBHOOK,
-        payload: { materialId: "m4", shouldFail: true },
-        idempotencyKey: "worker_test2",
-      });
+    await insertOutboxEvent(db, null, {
+      type: OUTBOX_EVENT_TYPES.SEND_PURCHASE_WEBHOOK,
+      payload: { materialId: "m4", shouldFail: true },
+      idempotencyKey: "worker_test2",
+    });
 
-      const processed = await processOutboxEvents();
-      assert.strictEqual(processed, 2);
-      assert.strictEqual(calls, 2);
+    const processed = await processOutboxEvents(mockBroadcast);
+    assert.strictEqual(processed, 2);
+    assert.strictEqual(calls, 2);
 
-      const successfulEvent = await db.collection("outbox").findOne({ idempotencyKey: "worker_test1" });
-      assert.strictEqual(successfulEvent.status, OUTBOX_STATUS.COMPLETED);
+    const successfulEvent = await db.collection("outbox").findOne({ idempotencyKey: "worker_test1" });
+    assert.strictEqual(successfulEvent.status, OUTBOX_STATUS.COMPLETED);
 
-      const failingEvent = await db.collection("outbox").findOne({ idempotencyKey: "worker_test2" });
-      assert.strictEqual(failingEvent.status, OUTBOX_STATUS.PENDING);
-      assert.strictEqual(failingEvent.retries, 1);
-    } finally {
-      // Restore
-      webhookSender.broadcastPurchaseEvent = originalBroadcast;
-    }
+    const failingEvent = await db.collection("outbox").findOne({ idempotencyKey: "worker_test2" });
+    assert.strictEqual(failingEvent.status, OUTBOX_STATUS.PENDING);
+    assert.strictEqual(failingEvent.retries, 1);
   });
 });

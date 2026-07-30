@@ -1,6 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { withApiHardening } from '@/lib/api/hardening';
+import { errorResponse } from '@/lib/api/errorResponse';
 
 /**
  * Liveness probe (#20): "is the process itself running and able to respond?"
@@ -11,9 +13,15 @@ import { NextResponse } from "next/server";
  * a healthy process because Pinata is down just causes a thundering herd of
  * restarts that don't fix anything.
  */
-export async function GET() {
+export const GET = withApiHardening(
+  async () => {
   return NextResponse.json(
     { status: "alive", timestamp: new Date().toISOString() },
     { status: 200 }
   );
-}
+  },
+  {
+    route: 'health',
+    rateLimit: { limit: 100, windowMs: 60_000 }, // 100 requests/min per IP
+  }
+);

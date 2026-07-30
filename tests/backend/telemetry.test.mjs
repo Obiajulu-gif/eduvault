@@ -20,7 +20,7 @@ import {
   currentTraceparent,
 } from "../../src/lib/telemetry/context.js";
 import { redactFields, isDeniedField } from "../../src/lib/telemetry/redact.js";
-import { withSpan, recentSpans, clearRecentSpans } from "../../src/lib/telemetry/tracing.js";
+import { withSpan, recentSpans, clearRecentSpans, disableOtelForTesting } from "../../src/lib/telemetry/tracing.js";
 import {
   incrementCounter,
   recordHistogram,
@@ -35,6 +35,9 @@ import {
   runIndexerBatch,
 } from "../../src/lib/indexer/stellarIndexer.js";
 import { COLLECTIONS } from "../../src/lib/backend/schemaContracts.js";
+import { createAuditEntry } from "../../src/lib/api/audit.js";
+
+disableOtelForTesting();
 
 beforeEach(() => {
   resetMetrics();
@@ -175,6 +178,23 @@ describe("tracing spans", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Audit record contract
+// ---------------------------------------------------------------------------
+describe("structured audit records", () => {
+  test("audit entries inherit correlation context and only retain allow-listed fields", async () => {
+    await runWithContext({ route: "upload" }, async () => {
+      const entry = createAuditEntry({ event: "upload_complete", uploadId: "up-1", email: "private@example.com", fileBytes: "secret" });
+      assert.equal(entry.event, "upload_complete");
+      assert.equal(entry.uploadId, "up-1");
+      assert.equal(entry.route, "upload");
+      assert.ok(entry.correlationId);
+      assert.equal(entry.email, undefined);
+      assert.equal(entry.fileBytes, undefined);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Metrics: cardinality limits
 // ---------------------------------------------------------------------------
 describe("metric cardinality limits", () => {
@@ -288,6 +308,9 @@ describe("indexer duplicate/retry attributes", () => {
     const snapshot = getMetricsSnapshot();
     assert.equal(snapshot.counters.indexer_events_applied_total['source="stellar"'], 1);
     assert.ok("indexer_dead_letter_count" in snapshot.gauges);
+    assert.equal(snapshot.counters.stellar_sync_batches_total['outcome="success",source="stellar"'], 1);
+    assert.ok(recentSpans.some((span) => span.name === "stellar.sync.fetch"));
+    assert.ok(recentSpans.some((span) => span.name === "stellar.sync.apply"));
   });
 });
 

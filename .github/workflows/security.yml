@@ -7,6 +7,13 @@ on:
       - main
       - develop
 
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
 jobs:
   audit:
     name: Dependency And Secret Checks

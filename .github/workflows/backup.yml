@@ -11,6 +11,15 @@ on:
         required: false
         default: "Manual trigger"
 
+permissions:
+  contents: read
+
+concurrency:
+  group: mongodb-backup
+  # Never cancel an in-flight backup — a partial dump is worse than a delayed
+  # one. A new run queues behind the current one instead.
+  cancel-in-progress: false
+
 jobs:
   backup:
     name: Dump and upload MongoDB

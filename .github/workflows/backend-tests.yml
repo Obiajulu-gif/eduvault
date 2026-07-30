@@ -12,6 +12,13 @@ on:
       - main
       - develop
 
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
 jobs:
   test:
     name: Run Backend Vitest Suite

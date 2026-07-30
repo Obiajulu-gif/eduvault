@@ -6,7 +6,7 @@ import { withApiHardening } from "@/lib/api/hardening";
 import { getDb } from "@/lib/mongodb";
 import { auditLog } from "@/lib/api/audit";
 import { generateAccessToken, generateRefreshToken, storeRefreshToken } from "@/lib/auth/tokenService";
-import { errorResponse } from "@/lib/utils/errorResponse";
+import { errorResponse } from "@/lib/api/errorResponse";
 
 export const dynamic = "force-dynamic";
 
@@ -30,11 +30,10 @@ export async function POST(request) {
         const signedTransactionXdr = typeof body?.signedTransactionXdr === "string" ? body.signedTransactionXdr.trim() : "";
 
         if (!address || !nonce || !signedTransactionXdr) {
-          return errorResponse({
-            status: 400,
-            detail: "Missing required fields: address, nonce, signedTransactionXdr",
-            instance: "/api/auth/verify",
-          });
+          return errorResponse(
+            "Missing required fields: address, nonce, signedTransactionXdr",
+            400
+          );
         }
 
         const result = await verifyChallenge(address, nonce, signedTransactionXdr);
@@ -48,11 +47,7 @@ export async function POST(request) {
             reason: result.reason,
             address,
           });
-          return errorResponse({
-            status: 401,
-            detail: result.reason,
-            instance: "/api/auth/verify",
-          });
+          return errorResponse(result.reason, 401);
         }
 
         cleanupExpiredChallenges().catch(() => {});
@@ -67,7 +62,7 @@ export async function POST(request) {
         });
 
         if (!process.env.JWT_SECRET) {
-          return errorResponse({ status: 500, detail: "Server configuration error", instance: "/api/auth/verify" });
+          return errorResponse("Server configuration error", 500);
         }
 
         const userId = user?._id?.toString() ?? address;
@@ -132,7 +127,7 @@ export async function POST(request) {
           status: 500,
           reason: error.message,
         });
-        return errorResponse({ status: 500, detail: "An unexpected error occurred.", instance: "/api/auth/verify" });
+        return errorResponse("An unexpected error occurred.", 500);
       }
     }
   );

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { issueChallenge } from "@/lib/auth/challenge";
 import { normalizeWalletAddress } from "@/lib/api/validation";
 import { withApiHardening } from "@/lib/api/hardening";
+import { errorResponse } from "@/lib/api/errorResponse";
 
 export async function GET(request) {
   return withApiHardening(
@@ -15,13 +16,13 @@ export async function GET(request) {
         const address = normalizeWalletAddress(searchParams.get("address"));
 
         if (!address) {
-          return NextResponse.json({ error: "Missing or invalid address" }, { status: 400 });
+          return errorResponse("Missing or invalid address", 400);
         }
 
         const challenge = await issueChallenge(address);
         return NextResponse.json(challenge);
       } catch (error) {
-        return NextResponse.json({ error: "Server error" }, { status: 500 });
+        return errorResponse("Server error", 500);
       }
     }
   );

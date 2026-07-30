@@ -20,9 +20,17 @@ export const mockCollections = {
         findOne: vi.fn(),
         insertOne: vi.fn(),
         updateOne: vi.fn(),
+        findOneAndUpdate: vi.fn(),
     },
     users: {
         findOne: vi.fn(),
+    },
+    material_status_history: {
+        insertOne: vi.fn(),
+        find: vi.fn(() => ({ sort: () => ({ toArray: async () => [] }) })),
+    },
+    purchases: {
+        countDocuments: vi.fn(async () => 0),
     },
 };
 
@@ -34,12 +42,27 @@ vi.mock('@/lib/mongodb', () => ({
     getDb: vi.fn(() => mockDb),
 }));
 
+process.env.JWT_SECRET = "test-jwt-secret-for-integration-tests-at-least-32-chars";
+
 vi.mock('@/lib/api/auth', () => ({
-    getUserFromCookie: vi.fn(async () => ({
-        sub: 'test_user_1',
-        walletAddress: '0xCreatorWalletAddress1234567890',
-        address: '0xCreatorWalletAddress1234567890',
-    })),
+    getUserFromCookie: vi.fn(async (request) => {
+        const walletAddress = request?.headers?.get?.('x-user-wallet');
+        if (!walletAddress) return null;
+        return {
+            sub: 'test_user_1',
+            walletAddress,
+            address: walletAddress,
+        };
+    }),
+    getFullUserFromCookie: vi.fn(async (request) => {
+        const walletAddress = request?.headers?.get?.('x-user-wallet');
+        if (!walletAddress) return null;
+        return {
+            _id: 'test_user_1',
+            walletAddress,
+            address: walletAddress,
+        };
+    }),
 }));
 
 // --- 2. Soroban Indexer Mock ---

@@ -12,7 +12,7 @@ import { getRouteBudget } from "@/lib/capacity/budgets";
 import { createDisconnectSignal } from "@/lib/capacity/backpressure";
 
 function clientKey(request) {
-  const forwardedFor = request.headers.get("x-forwarded-for");
+  const forwardedFor = process.env.TRUST_PROXY === "true" ? request.headers.get("x-forwarded-for") : null;
   return forwardedFor?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "local";
 }
 
@@ -56,7 +56,15 @@ export async function withApiHardening(request, options, handler) {
       }
 
       // ── Rate limiting ──────────────────────────────────────────────
-      const rateLimit = checkRateLimit(`${route}:${method}:${clientKey(request)}`, options.rateLimit);
+      const dimensions = [
+        clientKey(request),
+        request.headers.get("x-account-id") || "anonymous",
+        request.headers.get("x-wallet-address") || "no-wallet",
+      ];
+      const rateLimit = await checkRateLimit(
+        `${route}:${method}:${dimensions.join(":")}`,
+        { outagePolicy: options.rateLimit?.outagePolicy || (method === "GET" ? "open" : "closed"), ...options.rateLimit },
+      );
 
       if (!rateLimit.allowed) {
         auditLog({ event: "rate_limit_blocked", route, method, status: 429 });
@@ -65,7 +73,12 @@ export async function withApiHardening(request, options, handler) {
           { error: "Too many requests", retryAfter: rateLimit.retryAfter },
           {
             status: 429,
-            headers: { "x-correlation-id": currentCorrelationId() },
+            headers: {
+              "x-correlation-id": currentCorrelationId(),
+              "RateLimit-Limit": String(rateLimit.limit),
+              "RateLimit-Remaining": String(rateLimit.remaining),
+              "Retry-After": String(rateLimit.retryAfter || 1),
+            },
           }
         );
       }
